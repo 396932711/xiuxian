@@ -9,6 +9,11 @@
   "offlineCapSeconds": 7200,
   "storageKey": "zongmen_save_v1",
 
+  "saveFile": {
+    "exportNamePrefix": "宗门-存档",
+    "confirmResetWord": "重置"
+  },
+
   "produce": {
     "basePer10s": 1.5,
     "perLevelMul": 0.1

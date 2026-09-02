@@ -138,6 +138,14 @@
 
   /* 隐藏原生 file input */
   #fileUpload{display:none;}
+  #saveImport{display:none;}
+  .danger{background:#D9534F!important;color:#fff!important;font-weight:700;}
+  .muted{color:#6a7a86;font-size:12px;margin-top:4px;display:block;}
+  .card-block{padding:12px 14px;background:rgba(244,247,244,.7);border:1px dashed var(--line);border-radius:12px;margin:10px 0;}
+  .card-block h3{margin:0 0 4px;font-size:14px;color:var(--qing);}
+  .sect-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px;}
+  .sect-meta-grid div{padding:6px 8px;background:#fff;border-radius:8px;border:1px solid var(--line);font-size:12px;}
+  .sect-meta-grid strong{display:block;color:var(--ink);font-size:14px;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -158,15 +166,13 @@
     <div class="buildings" id="buildings"></div>
   </main>
   <nav id="bottombar">
-    <button class="nav-btn" onclick="openDisciples()">弟子</button>
-    <button class="nav-btn" onclick="renderBuildings()">建筑</button>
-    <button class="nav-btn" onclick="toast('背包功能将在后续版本开放')">背包</button>
-    <button class="nav-btn" onclick="toast('任务功能将在后续版本开放')">任务</button>
+    <!-- 底部导航按钮由 renderBottomNav() 按 uiText.bottomNav 数组动态渲染，支持自定义顺序 -->
   </nav>
 </div>
 <div id="overlay"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
 <input type="file" id="fileUpload" accept="image/*">
+<input type="file" id="saveImport" accept="application/json,.json">
 
 <script>
 /* ============================================================
@@ -266,6 +272,154 @@ function saveGame(){
       }catch(e2){}
     }
   }
+}
+
+/* ===== 1.1 SaveIO：导出 / 导入 / 重置存档 ===== */
+let saveImportInput = null;
+function setupSaveImportHandler(){
+  saveImportInput = document.getElementById("saveImport");
+  if(!saveImportInput) return;
+  saveImportInput.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    saveImportInput.value = "";
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onerror = ()=>toast("读取文件失败，请换一个存档文件");
+    reader.onload = evt=>{
+      try{
+        const raw = JSON.parse(String(evt.target.result || ""));
+        // 支持两种格式：①新版包壳 {__zongmen_save__, meta, data}  ② 直接 localStorage 的 data 对象（家长 F12 手动备份出来的也能导入）
+        const data = raw && typeof raw === "object" && raw.__zongmen_save__ === true && raw.data
+          ? raw.data
+          : raw;
+        if(!isValidSaveObject(data)){ toast(GameConfig.ui.uiText.importInvalid || "文件内容不是有效的宗门存档"); return; }
+        localStorage.setItem(GameConfig.values.storageKey, JSON.stringify(data));
+        toast(GameConfig.ui.uiText.importSuccess || "导入成功，正在载入进度…");
+        setTimeout(()=>location.reload(), 450);
+      }catch(err){
+        toast(GameConfig.ui.uiText.importInvalid || "文件内容不是有效的宗门存档");
+      }
+    };
+    reader.readAsText(f, "utf-8");
+  });
+}
+// 校验对象至少含有一份"宗门存档"必需字段，避免错把配置 JSON 导进来
+function isValidSaveObject(o){
+  if(!o || typeof o!=="object") return false;
+  if(!o.sect || typeof o.sect.name!=="string") return false;
+  if(!o.leader || typeof o.leader!=="object" || o.leader.id!=="d_0") return false;
+  if(!o.resources || typeof o.resources!=="object") return false;
+  if(!o.buildings || typeof o.buildings!=="object") return false;
+  if(!Array.isArray(o.disciples)) return false;
+  if(typeof o.nextDiscipleId!=="number" && typeof o.nextDiscipleId!=="string") return false;
+  return true;
+}
+function saveFileName(){
+  const S = GameConfig.values.saveFile;
+  const prefix = (S.exportNamePrefix || "宗门-存档");
+  const leader = state?.leader?.name || "掌门";
+  const sect   = state?.sect?.name  || "无名宗门";
+  const dt = new Date();
+  const pad = n=>String(n).padStart(2,"0");
+  const date = `${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}-${pad(dt.getHours())}${pad(dt.getMinutes())}`;
+  const sanitize = s=>(s||"").replace(/[\\/:*?"<>|]/g,"_").slice(0,18);
+  return `${prefix}-${sanitize(sect)}-${sanitize(leader)}-${date}.json`;
+}
+function exportSaveFile(){
+  if(!state){ toast("存档尚未准备好，请稍候再试"); return; }
+  saveGame(); // 确保最新进度
+  const meta = {
+    _exportedAt: new Date().toISOString(),
+    _storageKey: GameConfig.values.storageKey,
+    _version: state.version || "1.2",
+    _note: "《宗门》存档文件，可重新导入到浏览器本地 localStorage 恢复进度。修改前请先备份。"
+  };
+  const payload = { "__zongmen_save__": true, "meta": meta, "data": state };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json;charset=utf-8"});
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = saveFileName();
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 600);
+  toast("已生成存档文件，正在下载…");
+}
+function triggerImportSave(){ if(saveImportInput) saveImportInput.click(); else document.getElementById("saveImport").click(); }
+let _resetConfirmShown = false;
+function showResetConfirm(){
+  const uiT = GameConfig.ui.uiText;
+  const word = GameConfig.values.saveFile.confirmResetWord || "重置";
+  openModal(`
+    <h2>重置存档确认<button class="close" onclick="closeModal();_resetConfirmShown=false;openSettings();">×</button></h2>
+    <div class="hint-warn" style="background:#fff3ef;border:1px solid #f1bfb1;border-radius:10px;padding:10px;color:#8b3a2a;">${uiT.resetSaveHint || "所有进度将丢失"}</div>
+    <div class="m-sub" style="margin-top:8px;">${(uiT.resetConfirm||"").replace(/【重置】/g,"【"+word+"】") || "请输入确认词"}</div>
+    <input class="txt" id="resetConfirmInput" maxlength="16" placeholder="${uiT.resetPlaceholder||"请输入「"+word+"」二字以确认"}" onkeydown="if(event.key==='Enter')doReset()">
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn wood" onclick="closeModal();_resetConfirmShown=false;openSettings();">取消</button>
+      <button class="btn danger" onclick="doReset()">确认清空所有进度</button>
+    </div>
+  `);
+  _resetConfirmShown = true;
+  setTimeout(()=>document.getElementById("resetConfirmInput")?.focus(), 60);
+}
+function doReset(){
+  const uiT = GameConfig.ui.uiText;
+  const expected = GameConfig.values.saveFile.confirmResetWord || "重置";
+  const val = (document.getElementById("resetConfirmInput")?.value || "").trim();
+  if(val !== expected){ toast(uiT.resetWrongText || "输入不符，已取消重置"); return; }
+  localStorage.removeItem(GameConfig.values.storageKey);
+  _resetConfirmShown = false;
+  closeModal();
+  toast(uiT.resetDone || "已重置存档");
+  setTimeout(()=>location.reload(), 500);
+}
+
+/* ===== 1.2 设置弹窗（存档管理 + 未来其他宗门级设置入口）===== */
+function openSettings(){
+  const uiT = GameConfig.ui.uiText;
+  const now = new Date();
+  const last = state ? new Date(state.lastSaveTime) : now;
+  const pad = n=>String(n).padStart(2,"0");
+  const fmt = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const lingshi = state ? Math.floor(state.resources.lingshi) : 0;
+  const discipleCount = state ? state.disciples.length : 0;
+  const dianLv = state ? state.buildings.dian.level : 1;
+  const storageKey = GameConfig.values.storageKey;
+  openModal(`
+    <h2>${uiT.settingsTitle || "宗门设置"} · ${uiT.saveMgrTitle || "存档管理"}<button class="close" onclick="closeModal()">×</button></h2>
+    <div class="m-sub">${uiT.saveMgrSub || ""}</div>
+    <div class="sect-meta-grid">
+      <div>宗门<strong>${state?.sect?.name || '-'}</strong></div>
+      <div>大殿等级<strong>Lv.${dianLv}</strong></div>
+      <div>掌门<strong>${state?.leader?.name || '-'}</strong></div>
+      <div>弟子<strong>${discipleCount}/${discipleCap()}（掌门不计）</strong></div>
+      <div>灵石<strong>${lingshi}</strong></div>
+      <div>最近保存<strong>${fmt(last)}</strong></div>
+    </div>
+    <div class="card-block">
+      <h3>📦 导出</h3>
+      <button class="btn qing full" onclick="exportSaveFile()">${uiT.exportSaveBtn || "导出存档"}</button>
+      <span class="muted">${uiT.exportSaveHint || ""}</span>
+      <span class="muted">${uiT.fileNameHint || "文件名格式：前缀-宗门-掌门-日期.json"} · ${saveFileName()}</span>
+    </div>
+    <div class="card-block">
+      <h3>📥 导入</h3>
+      <button class="btn wood full" onclick="triggerImportSave()">${uiT.importSaveBtn || "选择存档文件"}</button>
+      <span class="muted">${uiT.importSaveHint || ""}</span>
+    </div>
+    <div class="card-block" style="border-color:#f1bfb1;background:#fff6f1;">
+      <h3 style="color:#b3361a;">🔄 重置</h3>
+      <button class="btn full danger" onclick="showResetConfirm()">${uiT.resetSaveBtn || "重置存档"}</button>
+      <span class="muted">${uiT.resetSaveHint || ""}</span>
+    </div>
+    <div class="card-block">
+      <h3>🧩 调试信息</h3>
+      <div class="info-row"><span>存档 Key</span><span><code>${storageKey}</code></span></div>
+      <div class="info-row"><span>配置来源</span><span>${loadDiagnostics?.usedFallback?'fallback 内嵌默认值':'在线 JSON 成功加载'}</span></div>
+      <div class="info-row"><span>配置 warnings</span><span>${(loadDiagnostics?.warnings?.length||0)} 条（F12 控制台查看）</span></div>
+    </div>
+  `);
 }
 
 /* ===== 2. 公式（统一走 helpers） ===== */
@@ -395,6 +549,28 @@ function tick(){
 }
 
 /* ===== 7. 渲染 ===== */
+// 底部导航按钮名 & 顺序由 ui.json 的 uiText.bottomNav 数组动态驱动。
+// 动作绑定为「位置语义」：索引 0=弟子 / 1=建筑 / 2=背包 / 3=任务 / 4=设置；如果数组更长或更短，超出部分会提示"功能开放中"。
+function renderBottomNav(){
+  const nav = document.getElementById("bottombar");
+  if(!nav) return;
+  const navNames = GameConfig.ui.uiText.bottomNav || ["弟子","建筑","背包","任务","设置"];
+  const actions = [
+    ()=>openDisciples(),
+    ()=>{ closeModal(); renderBuildings(); toast("回到宗门场景"); },
+    ()=>toast("背包功能将在后续版本开放"),
+    ()=>toast("任务功能将在后续版本开放"),
+    ()=>openSettings()
+  ];
+  nav.innerHTML = "";
+  navNames.forEach((name, idx)=>{
+    const btn = document.createElement("button");
+    btn.className = "nav-btn";
+    btn.textContent = name;
+    btn.onclick = actions[idx] || (()=>toast(name+" 功能将在后续版本开放"));
+    nav.appendChild(btn);
+  });
+}
 function renderTopbarAndResources(){
   document.getElementById("leaderAvatar").src = leaderAvatarSrc();
   document.getElementById("leaderName").textContent = state.leader.name;
@@ -433,6 +609,7 @@ function renderBuildings(){
 }
 function render(){
   renderTopbarAndResources();
+  renderBottomNav();
   renderBuildings();
 }
 
@@ -721,6 +898,7 @@ async function bootstrap(){
     window.GameConfigLoader.injectThemeColors(GameConfig.ui.themeColors);
     // 渲染前挂好上传句柄
     setupAvatarHandler();
+    setupSaveImportHandler();
     // 状态初始化
     state = loadGame();
     let offlineResult = null;

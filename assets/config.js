@@ -25,6 +25,7 @@
       initLingshi: 80,
       offlineCapSeconds: 7200,
       storageKey: "zongmen_save_v1",
+      saveFile: { exportNamePrefix: "宗门-存档", confirmResetWord: "重置" },
       produce: { basePer10s: 1.5, perLevelMul: 0.1 },
       upgrade: { baseCost: 100, growthMul: 1.3 },
       exp: { baseNeed: 100, growthMul: 1.3 },
@@ -75,7 +76,7 @@
       },
       themeColors: { qing:"#3FA89A", wood:"#B58A4E", gold:"#E8B84E", ink:"#3A4A5A", cloud:"#F4F7F4" },
       uiText: {
-        bottomNav: ["弟子","建筑","背包","任务"],
+        bottomNav: ["弟子","建筑","背包","任务","设置"],
         buildingLockedHint: "需先升级宗门大殿",
         lingshiNotEnough:   "灵石不足",
         workerSlotsFull:    "矿场工位已满，请升级灵矿场",
@@ -83,7 +84,24 @@
         recruitCooldown:    "招募冷却中，请稍候",
         renameRule:         "名字需1-6个字符",
         moraleOn:  "掌门在岗，全员 +10% ✅",
-        moraleOff: "掌门未在岗"
+        moraleOff: "掌门未在岗",
+        saveMgrTitle: "存档管理",
+        saveMgrSub:   "把当前进度导出成文件分享，或从备份文件恢复，也可一键重开新档",
+        exportSaveBtn: "📦 导出存档为 JSON 文件",
+        exportSaveHint: "导出后会下载一个 .json 文件，可以备份到云盘或发给家长",
+        importSaveBtn: "📥 从 JSON 文件导入存档",
+        importSaveHint: "选择之前导出的 .json 存档，导入后会自动覆盖当前进度并刷新页面",
+        importInvalid: "文件内容不是有效的宗门存档",
+        importSuccess: "导入成功，正在载入进度…",
+        resetSaveBtn: "🔄 重置当前存档（重开新档）",
+        resetSaveHint: "会丢失现在所有进度：掌门/弟子/灵石/建筑等级全部归零（无法恢复）",
+        resetConfirm: "真的要重置吗？输入【重置】二字后点确认，所有进度将无法恢复",
+        resetPlaceholder: "请输入「重置」二字以确认",
+        resetWrongText: "输入不符，已取消重置",
+        resetDone: "宗门已重建，小掌门请继续加油 ✨",
+        fileNameHint: "导出文件名（含掌门名、日期）",
+        btnChooseFile: "选择存档文件…",
+        settingsTitle: "宗门设置"
       }
     },
     resources: {
@@ -179,6 +197,9 @@
     V.discipleCapFormula.type        = str(V.discipleCapFormula.type,        "values.discipleCapFormula.type",        DEFAULTS.values.discipleCapFormula.type);
     V.discipleCapFormula.base        = num(V.discipleCapFormula.base,        "values.discipleCapFormula.base",        DEFAULTS.values.discipleCapFormula.base);
     V.discipleCapFormula.perDianLevel= num(V.discipleCapFormula.perDianLevel,"values.discipleCapFormula.perDianLevel",DEFAULTS.values.discipleCapFormula.perDianLevel);
+    V.saveFile = obj(V.saveFile, "values.saveFile");
+    V.saveFile.exportNamePrefix  = str(V.saveFile.exportNamePrefix,  "values.saveFile.exportNamePrefix",  DEFAULTS.values.saveFile.exportNamePrefix);
+    V.saveFile.confirmResetWord  = str(V.saveFile.confirmResetWord,  "values.saveFile.confirmResetWord",  DEFAULTS.values.saveFile.confirmResetWord);
 
     // realms
     cfg.realms = obj(cfg.realms, "realms");
