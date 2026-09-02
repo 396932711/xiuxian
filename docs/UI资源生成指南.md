@@ -48,8 +48,11 @@ light white cloud-mist background, peaceful and bright, clean vector-like flat s
 | 招募堂    | `assets/img/building_zhaomu.jpg` | square           | 已生成 |
 | 练气弟子立绘 | `assets/img/disciple_lianqi.jpg` | portrait\_4\_3   | 已生成 |
 | 灵石图标   | `assets/img/icon_lingshi.jpg`    | square\_hd       | 已生成 |
+| **掌门立绘（默认）** | `assets/img/leader.jpg` | portrait\_4\_3 | 已生成 |
 
 > **格式说明**：AI 生成工具默认输出 `.jpg`，故实际文件为 `.jpg`。若需透明背景 PNG，生成后用抠图工具处理并另存为 `.png`，文件名保持一致仅换扩展名。代码中按实际扩展名引用。
+
+> **掌门立绘与自定义头像**：`leader.jpg` 是孩子未上传自定义头像时的默认立绘（暖金色道袍 + 玉冠 + 掌门徽章，区别于弟子灰袍）。掌门详情页提供「更换头像」按钮，支持本地上传图片 → FileReader 存 DataURL 入存档，无需后端。
 
 ***
 
@@ -121,6 +124,20 @@ single object, simple and recognizable, child-friendly, no text
 ```
 
 尺寸：`square_hd`
+
+### 7. 掌门立绘（默认）`leader.png`
+
+```
+Q-style two-head-ratio Chinese xianxia sect MASTER character (young child-like
+leader), warm golden taoist robe with jade crown ornament and small leader badge,
+cute childlike face, standing full body portrait, flat cartoon illustration, soft
+lighting, plain light background, game character asset, child-friendly, no text,
+warmer gold and jade color palette to distinguish from regular grey-robed disciples
+```
+
+尺寸：`portrait_4_3`
+
+> 孩子本人专属 Q 版头像生成建议（亲子参与）：用孩子本人的照片作为参考图，复用上面的风格关键词（去掉 `plain light background` 等与参考冲突的部分），生成后通过掌门详情页"更换头像"按钮上传，即可在游戏内替代默认立绘。
 
 ***
 
