@@ -1,0 +1,14 @@
+# 本地运行时缓存与生成
+.trae-html-share-packages/
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 日志
+*.log
