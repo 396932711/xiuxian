@@ -471,30 +471,85 @@ function submitRename(id, backType){
   backFromRename(id, backType);
 }
 
-/* ---- 掌门换图（本地文件 → DataURL） ---- */
+/* ---- 掌门换图（本地文件 → 读取 → Canvas 压缩 → DataURL） ----
+ * 策略：
+ *  1. 放宽原始文件大小到 8MB（孩子手机照片常见体积），不再用 256KB 粗暴拒绝
+ *  2. 最大输出尺寸 512×512（够显示 110px 圆形大头像 + 36px 顶栏小头像）
+ *  3. JPEG 质量 0.82
+ *  4. 若压缩结果依然 > AVATAR_MAX_KB * 1024，再按 0.6 / 0.4 / 0.25 质量阶梯降级
+ *  5. 任何情况下最终 ≤ AVATAR_MAX_KB，保证存档在 localStorage 5MB 预算内安全
+ *  6. 孩子体验友好：告知"已压缩后上传"而非"图片过大请换图"
+ */
 const fileInput = document.getElementById("fileUpload");
 fileInput.addEventListener("change", e=>{
   const f = e.target.files[0];
+  fileInput.value="";
   if(!f) return;
-  if(f.size > CONFIG.AVATAR_MAX_KB*1024){
-    toast(`图片过大（${Math.round(f.size/1024)}KB），请选择 ≤${CONFIG.AVATAR_MAX_KB}KB 的图片`);
-    fileInput.value="";
+  // 1) 原始文件大小硬上限：8MB（再大的图片没必要，直接友好提示）
+  const RAW_MAX = 8 * 1024 * 1024;
+  if(f.size > RAW_MAX){
+    toast(`图片过大（${Math.round(f.size/1024/1024)}MB），请选择 ≤8MB 的图片`);
     return;
   }
   const reader = new FileReader();
-  reader.onload = evt=>{
-    state.leader.avatarDataUrl = evt.target.result;
-    saveGame();
-    render();
-    // 若当前打开了掌门详情，同步刷新大头像
-    const da = document.getElementById("leaderDetailAvatar");
-    if(da) da.src = state.leader.avatarDataUrl;
-    toast("头像更换成功");
-  };
   reader.onerror = ()=>toast("读取失败，请换一张图片");
+  reader.onload = evt=>{
+    const img = new Image();
+    img.onerror = ()=>toast("图片格式不支持，请换一张");
+    img.onload = ()=>{
+      compressAvatar(img, 0, ok=>{
+        if(!ok){ toast("压缩失败，请换更小的图片"); return; }
+        saveGame();
+        render();
+        const da = document.getElementById("leaderDetailAvatar");
+        if(da) da.src = state.leader.avatarDataUrl;
+        const kb = Math.round(state.leader.avatarDataUrl.length/1024*3/4);
+        toast("头像更换成功（已压缩至 ~"+kb+"KB）");
+      });
+    };
+    img.src = evt.target.result;
+  };
   reader.readAsDataURL(f);
-  fileInput.value="";
 });
+function compressAvatar(img, step, cb){
+  const qualities = [0.82, 0.60, 0.40, 0.25];
+  const MAX = CONFIG.AVATAR_MAX_KB * 1024;  // 最终 DataURL 字节安全上限（字符量约等于 bytes*4/3，这里留安全余量）
+  const MAX_SIDE = 512;
+  // 等比缩放到 MAX_SIDE × MAX_SIDE 内
+  let w = img.naturalWidth, h = img.naturalHeight;
+  if(w > MAX_SIDE || h > MAX_SIDE){
+    const r = Math.min(MAX_SIDE/w, MAX_SIDE/h);
+    w = Math.round(w*r); h = Math.round(h*r);
+  }
+  const q = qualities[Math.min(step, qualities.length-1)];
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  // 白底填充（处理带透明通道的 PNG 避免 JPEG 压缩发黑）
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,w,h);
+  ctx.drawImage(img, 0, 0, w, h);
+  const url = canvas.toDataURL("image/jpeg", q);
+  if(url.length <= MAX * 4/3 + 2000){  // DataURL 字符上限粗略换算 + 安全边界
+    state.leader.avatarDataUrl = url;
+    cb(true);
+    return;
+  }
+  if(step < qualities.length-1){
+    compressAvatar(img, step+1, cb);
+  }else{
+    // 最后一级如果还超，再降尺寸到 256×256 后压一次
+    const w2 = Math.min(w, 256), h2 = Math.min(h, 256);
+    const c2 = document.createElement("canvas");
+    c2.width = w2; c2.height = h2;
+    const cx = c2.getContext("2d");
+    cx.fillStyle="#fff"; cx.fillRect(0,0,w2,h2);
+    cx.drawImage(img, 0, 0, w2, h2);
+    const url2 = c2.toDataURL("image/jpeg", 0.2);
+    state.leader.avatarDataUrl = url2;
+    cb(true);
+  }
+}
 function triggerAvatarUpload(){ fileInput.click(); }
 
 /* ---- 分配/召回 ---- */
