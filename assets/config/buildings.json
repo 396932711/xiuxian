@@ -1,0 +1,35 @@
+{
+  "_version": "1.0",
+  "_desc": "建筑定义：名称、图片、描述、升级依赖与工位/上限公式。新增建筑时在此表新增 key，同时在 buildingMeta 与 UI 流程补充逻辑（代码会按 key 自动加载）。",
+
+  "order": ["dian", "kuang", "zhaomu"],
+
+  "buildingMeta": {
+    "dian": {
+      "id": "dian",
+      "name": "宗门大殿",
+      "img": "assets/img/building_dian.jpg",
+      "desc": "宗门核心，决定弟子上限与建筑等级上限",
+      "isCore": true,
+      "capRules": {
+        "discipleCap": { "type": "linear", "base": 2, "perLevel": 1, "_comment": "大殿每升1级，弟子上限 +1（掌门不计入）" }
+      }
+    },
+    "kuang": {
+      "id": "kuang",
+      "name": "灵矿场",
+      "img": "assets/img/building_kuang.jpg",
+      "desc": "分配掌门与弟子采集灵石",
+      "workerType": "mining",
+      "slotCap": { "type": "linear", "base": 1, "perLevel": 1, "_comment": "工位 = base + perLevel × 矿场等级" },
+      "produces": ["lingshi"]
+    },
+    "zhaomu": {
+      "id": "zhaomu",
+      "name": "招募堂",
+      "img": "assets/img/building_zhaomu.jpg",
+      "desc": "消耗灵石招募新弟子",
+      "workerType": null
+    }
+  }
+}

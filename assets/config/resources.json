@@ -1,0 +1,49 @@
+{
+  "_version": "1.0",
+  "_desc": "资源定义：灵石、灵药、丹药、突破石、宗门贡献。阶段1目前只用『灵石』，其余表字段预留用于阶段2/3，不用提前改。",
+
+  "order": ["lingshi", "lingyao", "danyao", "tupoishi", "contribution"],
+
+  "resources": {
+    "lingshi": {
+      "id": "lingshi",
+      "name": "灵石",
+      "img": "assets/img/icon_lingshi.jpg",
+      "initialValue": 80,
+      "decimal": 0,
+      "_unlockAtStage": 1
+    },
+    "lingyao": {
+      "id": "lingyao",
+      "name": "灵药",
+      "img": "assets/img/icon_lingyao.jpg",
+      "initialValue": 0,
+      "decimal": 0,
+      "_unlockAtStage": 2
+    },
+    "danyao": {
+      "id": "danyao",
+      "name": "丹药",
+      "img": "assets/img/icon_danyao.jpg",
+      "initialValue": 0,
+      "decimal": 0,
+      "_unlockAtStage": 2
+    },
+    "tupoishi": {
+      "id": "tupoishi",
+      "name": "突破石",
+      "img": "assets/img/icon_tupoishi.jpg",
+      "initialValue": 0,
+      "decimal": 0,
+      "_unlockAtStage": 3
+    },
+    "contribution": {
+      "id": "contribution",
+      "name": "宗门贡献",
+      "img": "assets/img/icon_contribution.jpg",
+      "initialValue": 0,
+      "decimal": 0,
+      "_unlockAtStage": 2
+    }
+  }
+}

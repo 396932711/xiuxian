@@ -1,0 +1,37 @@
+{
+  "_version": "1.0",
+  "_desc": "UI 字符串与图片路径配置：想改主题色、资源图标、背景图、按钮文案、导航标签在此表改。颜色值同时会同步写入 CSS 变量（见 config-loader 注入 --qing/--wood/--gold）。",
+
+  "sect": {
+    "defaultName": "无名宗门"
+  },
+
+  "images": {
+    "sceneBg": "assets/img/scene_bg.jpg",
+    "iconLingshi": "assets/img/icon_lingshi.jpg",
+    "iconLingyao": "assets/img/icon_lingyao.jpg",
+    "iconDanyao": "assets/img/icon_danyao.jpg",
+    "leaderDefault": "assets/img/leader.jpg",
+    "discipleLianqi": "assets/img/disciple_lianqi.jpg"
+  },
+
+  "themeColors": {
+    "qing":   "#3FA89A",
+    "wood":   "#B58A4E",
+    "gold":   "#E8B84E",
+    "ink":    "#3A4A5A",
+    "cloud":  "#F4F7F4"
+  },
+
+  "uiText": {
+    "bottomNav": ["弟子", "建筑", "背包", "任务"],
+    "buildingLockedHint": "需先升级宗门大殿",
+    "lingshiNotEnough": "灵石不足",
+    "workerSlotsFull": "矿场工位已满，请升级灵矿场",
+    "discipleCapFull": "弟子上限已满，请先升级宗门大殿",
+    "recruitCooldown": "招募冷却中，请稍候",
+    "renameRule": "名字需1-6个字符",
+    "moraleOn": "掌门在岗，全员 +10% ✅",
+    "moraleOff": "掌门未在岗"
+  }
+}

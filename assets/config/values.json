@@ -1,0 +1,54 @@
+{
+  "_version": "1.0",
+  "_desc": "数值常量配置：产出公式、升级公式、经验公式、存档、头像压缩、掌门/弟子上限倍率等。修改后刷新页面立即生效（建议先把掌门招回、清空浏览器 localStorage 避免旧数值冲突）。",
+
+  "tickSeconds": 10,
+  "idleExpPerTick": 1,
+  "maxLevelPerRealm": 10,
+  "initLingshi": 80,
+  "offlineCapSeconds": 7200,
+  "storageKey": "zongmen_save_v1",
+
+  "produce": {
+    "basePer10s": 1.5,
+    "perLevelMul": 0.1
+  },
+
+  "upgrade": {
+    "baseCost": 100,
+    "growthMul": 1.3
+  },
+
+  "exp": {
+    "baseNeed": 100,
+    "growthMul": 1.3
+  },
+
+  "discipleCapFormula": { "type": "linear", "base": 2, "perDianLevel": 1, "_comment": "弟子上限 = base + perDianLevel × 大殿等级" },
+
+  "avatar": {
+    "compress": {
+      "rawFileMaxKB": 8192,
+      "dataUrlMaxKB": 256,
+      "maxSide": 512,
+      "fallbackSide": 256,
+      "qualitySteps": [0.82, 0.6, 0.4, 0.25],
+      "fallbackQuality": 0.2
+    }
+  },
+
+  "leader": {
+    "root": 1.2,
+    "produceMul": 1.5,
+    "moraleMul": 1.1,
+    "defaultName": "小掌门",
+    "defaultAvatarImg": "assets/img/leader.jpg"
+  },
+
+  "recruit": {
+    "cost": 50,
+    "cdBaseSeconds": 30,
+    "cdGrowthPerLevel": 0.9,
+    "cdMinSeconds": 5
+  }
+}

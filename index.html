@@ -4,11 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>宗门</title>
+<!-- 配置加载器：从 assets/config/*.json 读取；file:/// 下 CORS 失败则自动回退到内嵌默认值 -->
+<script src="assets/config.js"></script>
 <style>
   /* ===== 全局与主题 ===== */
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root{
-    --qing:#3FA89A;       /* 青绿 */
+    --qing:#3FA89A;       /* 青绿（可被 ui.json themeColors 覆盖） */
     --wood:#B58A4E;       /* 原木 */
     --gold:#E8B84E;       /* 暖金 */
     --gold-soft:#f7e5b8;
@@ -131,6 +133,8 @@
   input.txt{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;}
   .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(58,74,90,.92);color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;}
   .toast.show{opacity:1;}
+  .cfg-bar{font-size:11px;color:#8a9a9a;padding:2px 8px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--panel);}
+  .cfg-bar code{background:#eef3f0;border-radius:4px;padding:0 4px;color:#455;}
 
   /* 隐藏原生 file input */
   #fileUpload{display:none;}
@@ -140,15 +144,15 @@
 <div id="app">
   <header id="topbar">
     <div class="leader-entry" id="leaderEntry" onclick="openLeaderDetail()">
-      <img class="l-avatar" id="leaderAvatar" src="assets/img/leader.jpg" alt="掌门">
+      <img class="l-avatar" id="leaderAvatar" alt="掌门">
       <div class="l-meta">
-        <div class="l-name"><span id="leaderName">小掌门</span><span class="l-badge">掌门</span></div>
-        <div class="l-lv" id="leaderLv">练气 Lv.1</div>
+        <div class="l-name"><span id="leaderName"></span><span class="l-badge">掌门</span></div>
+        <div class="l-lv" id="leaderLv"></div>
       </div>
     </div>
-    <div class="sect-name"><span id="sectName">无名宗门</span><span class="sect-level" id="sectLevel">Lv.1</span></div>
+    <div class="sect-name"><span id="sectName"></span><span class="sect-level" id="sectLevel"></span></div>
     <div class="spacer"></div>
-    <div class="res"><img src="assets/img/icon_lingshi.jpg" alt="灵石"><span id="lingshi">0</span></div>
+    <div class="res"><img id="iconLingshi" alt="灵石"><span id="lingshi">0</span></div>
   </header>
   <main id="scene">
     <div class="buildings" id="buildings"></div>
@@ -166,66 +170,58 @@
 
 <script>
 /* ============================================================
- * 宗门 v1.1（含掌门系统）
- * 模块分区：Config / Save / 公式 / 掌门 / 弟子 / 建筑 / 主循环 / 渲染
+ * 宗门 v1.2 — 全部参数外置可配置
+ * 加载顺序：
+ *   1. assets/config.js（ConfigLoader：6 份 JSON + fallback 默认值 + 校验 + helpers）
+ *   2. await loadAll() -> 主题色注入 -> 背景/图标按配置换 -> init() -> tick()
+ * 业务代码严禁再写死数值常量，统一走 window.GameConfig / H（helpers）
  * ============================================================ */
 
-/* ===== 1. Config ===== */
-const CONFIG = {
-  BASE_PRODUCE: 1.5,
-  PRODUCE_PER_LEVEL: 0.1,
-  UPGRADE_BASE: 100,
-  UPGRADE_GROWTH: 1.3,
-  EXP_BASE: 100,
-  EXP_GROWTH: 1.3,
-  MAX_LEVEL: 10,
-  RECRUIT_COST: 50,
-  RECRUIT_CD_BASE: 30,
-  RECRUIT_CD_GROWTH: 0.9,
-  RECRUIT_CD_MIN: 5,
-  OFFLINE_CAP: 7200,
-  IDLE_EXP: 1,
-  STORAGE_KEY: 'zongmen_save_v1',
-  INIT_LINGSHI: 80,
-  LEADER_ROOT: 1.2,          // 掌门根骨（优级）
-  LEADER_MUL: 1.5,           // 掌门产出倍率
-  MORALE_MUL: 1.10,          // 掌门在岗：士气 +10%
-  AVATAR_MAX_KB: 256         // 自定义头像 DataURL 容差（仅作上传提示，不强制裁剪）
-};
-
-/* 名字库 */
-const NAME_LIB = {
-  surnames: ["张","王","李","赵","陈","林","周","沈","顾","苏","萧","楚","凌","叶","秦","墨","白","云","风","陆"],
-  given:    ["道凡","清风","明月","云鹤","青衣","子期","长歌","无尘","若虚","观山","听雨","辞树","归尘","忘机","问渠","知秋","望舒","星河","怀瑾","漱石"]
-};
-
-const BUILDING_META = {
-  dian:   { name:"宗门大殿", img:"assets/img/building_dian.jpg",   desc:"宗门核心，决定弟子上限与建筑等级上限" },
-  kuang:  { name:"灵矿场",   img:"assets/img/building_kuang.jpg",  desc:"分配掌门与弟子采集灵石" },
-  zhaomu: { name:"招募堂",   img:"assets/img/building_zhaomu.jpg", desc:"消耗灵石招募新弟子" }
-};
-
-/* ===== 2. Save（含 leader 字段 + DataURL 容错） ===== */
+/* ===== 0. 全局句柄（配置加载完成后赋值） ===== */
+let GameConfig = null;  // {values, buildings, realms, nameLib, ui, resources}
+let H = null;           // helpers（producePer10s / upgradeCost / expNeeded / ...）
 let state = null;
+let fileInput = null;
+let loadDiagnostics = null; // {sourceMap, warnings, usedFallback}
+let running = false;
 
+/* ===== 1. Save（基于 GameConfig 读取存档键 + 旧档兼容升级） ===== */
 function makeLeader(){
+  const V = GameConfig.values;
   return {
-    id:"d_0", name:"小掌门", realm:"练气", level:1, exp:0,
-    status:"idle", assignTo:null, base:{root:CONFIG.LEADER_ROOT},
+    id:"d_0",
+    name: V.leader.defaultName,
+    realm: GameConfig.realms.order[0] in GameConfig.realms.realms
+      ? GameConfig.realms.realms[GameConfig.realms.order[0]].name
+      : "练气",
+    level:1, exp:0,
+    status:"idle", assignTo:null,
+    base:{root: V.leader.root},
     isLeader:true, avatarDataUrl:null
   };
 }
 function newGame(){
+  const V = GameConfig.values;
+  // 初始建筑：按 buildings.order 列表建立（保证新增配置后自动支持）
+  const buildings = {};
+  for(const key of GameConfig.buildings.order){
+    if(key==="dian")       buildings[key] = { level: 1 };
+    else if(key==="kuang") buildings[key] = { level: 1, workerIds: [] };
+    else if(key==="zhaomu")buildings[key] = { level: 1, refreshCdEnd: 0 };
+    else                   buildings[key] = { level: 1 };
+  }
+  // 初始资源：按 resources.order，灵石用 initialValue，其它初始 0
+  const resources = {};
+  for(const key of GameConfig.resources.order){
+    const r = GameConfig.resources.resources[key];
+    resources[key] = r.initialValue || 0;
+  }
   return {
-    version:"1.1",
+    version:"1.2",
     lastSaveTime:Date.now(),
-    sect:{ name:"无名宗门" },
-    resources:{ lingshi:CONFIG.INIT_LINGSHI },
-    buildings:{
-      dian:{ level:1 },
-      kuang:{ level:1, workerIds:[] },
-      zhaomu:{ level:1, refreshCdEnd:0 }
-    },
+    sect:{ name: GameConfig.ui.sect.defaultName },
+    resources,
+    buildings,
     leader: makeLeader(),
     disciples:[],
     nextDiscipleId:1
@@ -233,54 +229,74 @@ function newGame(){
 }
 function loadGame(){
   try{
-    const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+    const raw = localStorage.getItem(GameConfig.values.storageKey);
     if(!raw) return null;
     const s = JSON.parse(raw);
-    // 旧存档升级：没有 leader 的老版本补一个默认掌门
+    // 旧档升级：没有 leader 字段 → 补默认掌门
     if(!s.leader){ s.leader = makeLeader(); }
     s.leader.isLeader = true;
-    s.leader.base = s.leader.base || {root:CONFIG.LEADER_ROOT};
+    s.leader.base = s.leader.base || { root: GameConfig.values.leader.root };
     if(!s.leader.assignTo) s.leader.assignTo = null;
+    // 旧档：resources/sect/buildings 兜底
+    const tmpl = newGame();
+    s.sect      = s.sect      || tmpl.sect;
+    s.resources = Object.assign(tmpl.resources, s.resources || {});
+    s.buildings = s.buildings || tmpl.buildings;
+    for(const k of GameConfig.buildings.order){
+      if(!s.buildings[k]) s.buildings[k] = tmpl.buildings[k];
+      if(k==="kuang" && !Array.isArray(s.buildings.kuang.workerIds)) s.buildings.kuang.workerIds = [];
+      if(k==="zhaomu" && typeof s.buildings.zhaomu.refreshCdEnd!=="number") s.buildings.zhaomu.refreshCdEnd = 0;
+    }
+    s.disciples = Array.isArray(s.disciples)?s.disciples:[];
+    s.nextDiscipleId = s.nextDiscipleId || (s.disciples.length+1);
     return s;
   }catch(e){ return null; }
 }
 function saveGame(){
   state.lastSaveTime = Date.now();
-  try{ localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); }catch(e){
-    // 溢出：大概率是自定义头像太大，尝试清空后再存一次
+  try{
+    localStorage.setItem(GameConfig.values.storageKey, JSON.stringify(state));
+  }catch(e){
+    // 存档溢出：优先清掌门 DataURL 再存一次
     if(state.leader && state.leader.avatarDataUrl){
       state.leader.avatarDataUrl = null;
-      try{ localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
+      try{
+        localStorage.setItem(GameConfig.values.storageKey, JSON.stringify(state));
         toast("存档空间不足，已重置掌门自定义头像");
       }catch(e2){}
     }
   }
 }
 
-/* ===== 3. 公式 ===== */
-function producePer10s(d){
-  const base = CONFIG.BASE_PRODUCE * (1 + CONFIG.PRODUCE_PER_LEVEL*(d.level-1)) * d.base.root;
-  return base * (d.isLeader ? CONFIG.LEADER_MUL : 1);
-}
-function leaderOnDuty(){ return state.buildings.kuang.workerIds.includes("d_0"); }
-function moraleMul(){ return leaderOnDuty() ? CONFIG.MORALE_MUL : 1; }
-function upgradeCost(level){ return Math.floor(CONFIG.UPGRADE_BASE * Math.pow(CONFIG.UPGRADE_GROWTH, level-1)); }
-function expNeeded(level){ return Math.floor(CONFIG.EXP_BASE * Math.pow(CONFIG.EXP_GROWTH, level-1)); }
-function discipleCap(){ return 2 + state.buildings.dian.level; }   // 掌门不计入
-function kuangCap(){ return 1 + state.buildings.kuang.level; }     // 掌门同样占工位
-function recruitCdSec(){
-  return Math.max(CONFIG.RECRUIT_CD_BASE * Math.pow(CONFIG.RECRUIT_CD_GROWTH, state.buildings.zhaomu.level-1), CONFIG.RECRUIT_CD_MIN);
-}
+/* ===== 2. 公式（统一走 helpers） ===== */
+function producePer10s(d){ return H.producePer10s(d, realmCodeOfName(d.realm)); }
+function upgradeCost(level){ return H.upgradeCost(level); }
+function expNeeded(level){ return H.expNeeded(realmCodeOfName(state?.leader?.realm||GameConfig.realms.order[0]), level); }
+function discipleCap(){ return H.discipleCap(state.buildings.dian.level); }
+function kuangCap(){ return H.slotCap("kuang", state.buildings.kuang.level); }
+function recruitCdSec(){ return H.recruitCdSec(state.buildings.zhaomu.level); }
+function leaderOnDuty(){ return Array.isArray(state.buildings.kuang.workerIds) && state.buildings.kuang.workerIds.includes("d_0"); }
+function moraleMul(){ return H.moraleMul(leaderOnDuty()); }
 function getEntity(id){ return id==="d_0" ? state.leader : state.disciples.find(x=>x.id===id); }
 function leaderAvatarSrc(){
-  return (state.leader && state.leader.avatarDataUrl) ? state.leader.avatarDataUrl : "assets/img/leader.jpg";
+  if(state.leader && state.leader.avatarDataUrl) return state.leader.avatarDataUrl;
+  return GameConfig.values.leader.defaultAvatarImg;
+}
+function realmNameToCodeMap(){
+  const m = {};
+  for(const id of GameConfig.realms.order){ m[GameConfig.realms.realms[id].name] = id; }
+  return m;
+}
+function realmCodeOfName(name){
+  const m = realmNameToCodeMap();
+  return m[name] || GameConfig.realms.order[0];
 }
 
-/* ===== 4. 离线结算 ===== */
+/* ===== 3. 离线结算 ===== */
 function settleOffline(){
   const now = Date.now();
-  const offlineMs = Math.min(now - state.lastSaveTime, CONFIG.OFFLINE_CAP*1000);
-  const ticks = Math.floor(offlineMs/10000);
+  const offlineMs = Math.min(now - state.lastSaveTime, GameConfig.values.offlineCapSeconds*1000);
+  const ticks = Math.floor(offlineMs / (GameConfig.values.tickSeconds*1000));
   if(ticks <= 0) return null;
   let gain = 0;
   const mm = moraleMul();
@@ -293,22 +309,24 @@ function settleOffline(){
   return { seconds:Math.floor(offlineMs/1000), gain, ticks, morale: mm>1 };
 }
 
-/* ===== 5. 弟子操作 ===== */
-function genName(){
-  const s = NAME_LIB.surnames[Math.floor(Math.random()*NAME_LIB.surnames.length)];
-  const g = NAME_LIB.given[Math.floor(Math.random()*NAME_LIB.given.length)];
-  return s+g;
-}
+/* ===== 4. 弟子 / 掌门操作 ===== */
+function genName(){ return H.genName(); }
 function recruit(){
-  if(state.disciples.length >= discipleCap()) return {ok:false,msg:"弟子上限已满，请先升级宗门大殿"};
-  if(state.resources.lingshi < CONFIG.RECRUIT_COST) return {ok:false,msg:"灵石不足"};
-  if(Date.now() < state.buildings.zhaomu.refreshCdEnd) return {ok:false,msg:"招募冷却中，请稍候"};
-  state.resources.lingshi -= CONFIG.RECRUIT_COST;
+  if(state.disciples.length >= discipleCap()) return {ok:false, msg: GameConfig.ui.uiText.discipleCapFull || "弟子上限已满，请先升级宗门大殿"};
+  const cost = GameConfig.values.recruit.cost;
+  if(state.resources.lingshi < cost) return {ok:false, msg: GameConfig.ui.uiText.lingshiNotEnough || "灵石不足"};
+  if(Date.now() < state.buildings.zhaomu.refreshCdEnd) return {ok:false, msg: GameConfig.ui.uiText.recruitCooldown || "招募冷却中，请稍候"};
+  state.resources.lingshi -= cost;
   state.buildings.zhaomu.refreshCdEnd = Date.now() + recruitCdSec()*1000;
+  const starterRealmId = GameConfig.realms.order[0];
+  const starterRealm = GameConfig.realms.realms[starterRealmId];
   const d = {
     id:"d_"+(state.nextDiscipleId++),
-    name:genName(), realm:"练气", level:1, exp:0,
-    status:"idle", assignTo:null, base:{ root:1.0 }
+    name:genName(),
+    realm: starterRealm.name,
+    level:1, exp:0,
+    status:"idle", assignTo:null,
+    base:{ root: 1.0 }
   };
   state.disciples.push(d);
   saveGame();
@@ -325,7 +343,7 @@ function assignToKuang(id){
   const d = getEntity(id);
   if(!d) return {ok:false,msg:"不存在"};
   if(d.status!=="idle") return {ok:false,msg:"该人员已在岗"};
-  if(state.buildings.kuang.workerIds.length >= kuangCap()) return {ok:false,msg:"矿场工位已满，请升级灵矿场"};
+  if(state.buildings.kuang.workerIds.length >= kuangCap()) return {ok:false, msg: GameConfig.ui.uiText.workerSlotsFull || "矿场工位已满，请升级灵矿场"};
   d.status="mining"; d.assignTo="kuang";
   state.buildings.kuang.workerIds.push(d.id);
   saveGame(); return {ok:true};
@@ -338,19 +356,19 @@ function recallEntity(id){
   saveGame(); return {ok:true};
 }
 
-/* ===== 6. 建筑升级 ===== */
+/* ===== 5. 建筑升级 ===== */
 function upgradeBuilding(key){
   const b = state.buildings[key];
-  if(key!=="dian" && b.level >= state.buildings.dian.level) return {ok:false,msg:"需先升级宗门大殿"};
+  if(key!=="dian" && b.level >= state.buildings.dian.level) return {ok:false, msg: GameConfig.ui.uiText.buildingLockedHint || "需先升级宗门大殿"};
   const cost = upgradeCost(b.level);
-  if(state.resources.lingshi < cost) return {ok:false,msg:"灵石不足"};
+  if(state.resources.lingshi < cost) return {ok:false, msg: GameConfig.ui.uiText.lingshiNotEnough || "灵石不足"};
   state.resources.lingshi -= cost;
   b.level++;
   saveGame();
   return {ok:true};
 }
 
-/* ===== 7. 主循环 ===== */
+/* ===== 6. 主循环（tickSeconds 按配置动态） ===== */
 function tick(){
   const mm = moraleMul();
   for(const id of state.buildings.kuang.workerIds){
@@ -358,39 +376,44 @@ function tick(){
     if(d) state.resources.lingshi += producePer10s(d) * mm;
   }
   state.resources.lingshi = Math.floor(state.resources.lingshi*100)/100;
-  // 掌门 + 全部弟子：经验
-  [state.leader, ...state.disciples].forEach(d=>{
-    if(!d) return;
-    if(d.level < CONFIG.MAX_LEVEL){
-      d.exp += CONFIG.IDLE_EXP;
-      while(d.level < CONFIG.MAX_LEVEL && d.exp >= expNeeded(d.level)){
-        d.exp -= expNeeded(d.level);
+  // 掌门 + 弟子 经验
+  const all = [state.leader, ...state.disciples];
+  for(const d of all){
+    if(!d) continue;
+    const maxLv = H.maxLevel(realmCodeOfName(d.realm));
+    if(d.level < maxLv){
+      d.exp += GameConfig.values.idleExpPerTick;
+      while(d.level < maxLv && d.exp >= H.expNeeded(realmCodeOfName(d.realm), d.level)){
+        d.exp -= H.expNeeded(realmCodeOfName(d.realm), d.level);
         d.level++;
       }
-    }else{ d.exp = 0; }
-  });
+    }else{
+      d.exp = 0;
+    }
+  }
   saveGame();
 }
 
-/* ===== 8. 渲染 ===== */
-function render(){
-  // 顶栏掌门
+/* ===== 7. 渲染 ===== */
+function renderTopbarAndResources(){
   document.getElementById("leaderAvatar").src = leaderAvatarSrc();
   document.getElementById("leaderName").textContent = state.leader.name;
   document.getElementById("leaderLv").textContent = state.leader.realm + " Lv." + state.leader.level;
-  // 顶栏宗门
   document.getElementById("sectName").textContent = state.sect.name;
   document.getElementById("sectLevel").textContent = "Lv."+state.buildings.dian.level;
-  // 顶栏资源
   document.getElementById("lingshi").textContent = Math.floor(state.resources.lingshi);
-  renderBuildings();
+  // 资源图 + 背景图：配置驱动
+  document.getElementById("iconLingshi").src = GameConfig.ui.images.iconLingshi;
+  document.body.style.background = `#cfe8e1 url("${GameConfig.ui.images.sceneBg}") center/cover no-repeat fixed`;
 }
 function renderBuildings(){
   const wrap = document.getElementById("buildings");
+  if(!wrap) return;
   wrap.innerHTML = "";
-  for(const key of ["dian","kuang","zhaomu"]){
+  for(const key of GameConfig.buildings.order){
     const b = state.buildings[key];
-    const m = BUILDING_META[key];
+    if(!b) continue;
+    const m = GameConfig.buildings.buildingMeta[key];
     let sub = "Lv."+b.level;
     if(key==="kuang"){
       const mmNote = leaderOnDuty() ? " · 💪士气+" : "";
@@ -408,34 +431,40 @@ function renderBuildings(){
     wrap.appendChild(el);
   }
 }
+function render(){
+  renderTopbarAndResources();
+  renderBuildings();
+}
 
-/* ===== 9. 弹窗 ===== */
+/* ===== 8. 弹窗 ===== */
 function openModal(html){
   document.getElementById("modal").innerHTML = html;
   document.getElementById("overlay").classList.add("show");
 }
 function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
-document.getElementById("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeModal(); });
 
-/* ---- 掌门详情（顶栏头像进入） ---- */
+/* ---- 掌门详情 ---- */
 function openLeaderDetail(){
   const d = state.leader;
   const mining = d.status==="mining";
-  const pct = d.level>=CONFIG.MAX_LEVEL ? 100 : Math.min(100, Math.floor(d.exp/expNeeded(d.level)*100));
+  const maxLv = H.maxLevel(realmCodeOfName(d.realm));
+  const need = H.expNeeded(realmCodeOfName(d.realm), d.level);
+  const pct = d.level>=maxLv ? 100 : Math.min(100, Math.floor(d.exp/need*100));
   const onDuty = leaderOnDuty();
+  const uiT = GameConfig.ui.uiText;
   openModal(`
     <h2>掌门详情<button class="close" onclick="closeModal()">×</button></h2>
     <div class="leader-banner">
       <img id="leaderDetailAvatar" src="${leaderAvatarSrc()}" alt="掌门">
       <div class="r-name">${d.name} <span class="tag-gold">掌门</span></div>
-      <div class="r-sub">${d.realm}境 · Lv.${d.level} ${d.level>=CONFIG.MAX_LEVEL?'（已满级）':''}</div>
+      <div class="r-sub">${d.realm}境 · Lv.${d.level} ${d.level>=maxLv?'（已满级）':''}</div>
     </div>
-    <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${expNeeded(d.level)}</span></div>
+    <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${need}</span></div>
     <div class="expbar"><div style="width:${pct}%"></div></div>
     <div class="info-row"><span>产出 / 10s</span><span>${producePer10s(d).toFixed(2)} 灵石</span></div>
-    <div class="hint">掌门额外 ×${CONFIG.LEADER_MUL} 产出</div>
+    <div class="hint">掌门额外 ×${GameConfig.values.leader.produceMul} 产出</div>
     <div class="info-row"><span>岗位状态</span><span>${mining?'采集中':'空闲'}</span></div>
-    <div class="info-row"><span>士气加成</span><span>${onDuty?('全员同岗 +10% ✅'):'未生效（掌门下场后生效）'}</span></div>
+    <div class="info-row"><span>士气加成</span><span>${onDuty?(uiT.moraleOn||'全员同岗 +10% ✅'):'未生效（掌门下场后生效）'}</span></div>
     <div class="btn-row">
       <button class="btn wood" onclick="startRename('d_0','leader')">改名</button>
       <button class="btn qing" onclick="triggerAvatarUpload()">更换头像</button>
@@ -448,7 +477,7 @@ function openLeaderDetail(){
   `);
 }
 
-/* ---- 掌门改名（通用函数 + 入口字段区分） ---- */
+/* ---- 改名 ---- */
 function startRename(id, backType){
   const d = getEntity(id);
   openModal(`
@@ -457,7 +486,7 @@ function startRename(id, backType){
     <input class="txt" id="renameInput" maxlength="6" value="${d.name.replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter')submitRename('${id}','${backType}')">
     <button class="btn full" onclick="submitRename('${id}','${backType}')">确认</button>
   `);
-  setTimeout(()=>document.getElementById("renameInput").focus(),50);
+  setTimeout(()=>document.getElementById("renameInput")?.focus(),50);
 }
 function backFromRename(id, backType){
   if(backType==='leader') openLeaderDetail();
@@ -465,72 +494,64 @@ function backFromRename(id, backType){
 }
 function submitRename(id, backType){
   const v = document.getElementById("renameInput").value;
-  if(!renameEntity(id, v)){ toast("名字需1-6个字符"); return; }
+  if(!renameEntity(id, v)){ toast(GameConfig.ui.uiText.renameRule || "名字需1-6个字符"); return; }
   toast("改名成功");
   render();
   backFromRename(id, backType);
 }
 
-/* ---- 掌门换图（本地文件 → 读取 → Canvas 压缩 → DataURL） ----
- * 策略：
- *  1. 放宽原始文件大小到 8MB（孩子手机照片常见体积），不再用 256KB 粗暴拒绝
- *  2. 最大输出尺寸 512×512（够显示 110px 圆形大头像 + 36px 顶栏小头像）
- *  3. JPEG 质量 0.82
- *  4. 若压缩结果依然 > AVATAR_MAX_KB * 1024，再按 0.6 / 0.4 / 0.25 质量阶梯降级
- *  5. 任何情况下最终 ≤ AVATAR_MAX_KB，保证存档在 localStorage 5MB 预算内安全
- *  6. 孩子体验友好：告知"已压缩后上传"而非"图片过大请换图"
- */
-const fileInput = document.getElementById("fileUpload");
-fileInput.addEventListener("change", e=>{
-  const f = e.target.files[0];
-  fileInput.value="";
-  if(!f) return;
-  // 1) 原始文件大小硬上限：8MB（再大的图片没必要，直接友好提示）
-  const RAW_MAX = 8 * 1024 * 1024;
-  if(f.size > RAW_MAX){
-    toast(`图片过大（${Math.round(f.size/1024/1024)}MB），请选择 ≤8MB 的图片`);
-    return;
-  }
-  const reader = new FileReader();
-  reader.onerror = ()=>toast("读取失败，请换一张图片");
-  reader.onload = evt=>{
-    const img = new Image();
-    img.onerror = ()=>toast("图片格式不支持，请换一张");
-    img.onload = ()=>{
-      compressAvatar(img, 0, ok=>{
-        if(!ok){ toast("压缩失败，请换更小的图片"); return; }
-        saveGame();
-        render();
-        const da = document.getElementById("leaderDetailAvatar");
-        if(da) da.src = state.leader.avatarDataUrl;
-        const kb = Math.round(state.leader.avatarDataUrl.length/1024*3/4);
-        toast("头像更换成功（已压缩至 ~"+kb+"KB）");
-      });
+/* ---- 头像压缩上传（所有参数都走 values.json avatar.compress）---- */
+function setupAvatarHandler(){
+  fileInput = document.getElementById("fileUpload");
+  fileInput.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    fileInput.value="";
+    if(!f) return;
+    const C = GameConfig.values.avatar.compress;
+    const RAW_MAX = C.rawFileMaxKB * 1024;
+    if(f.size > RAW_MAX){
+      toast(`图片过大（${Math.round(f.size/1024/1024)}MB），请选择 ≤${C.rawFileMaxKB/1024}MB 的图片`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = ()=>toast("读取失败，请换一张图片");
+    reader.onload = evt=>{
+      const img = new Image();
+      img.onerror = ()=>toast("图片格式不支持，请换一张");
+      img.onload = ()=>{
+        compressAvatar(img, 0, ok=>{
+          if(!ok){ toast("压缩失败，请换更小的图片"); return; }
+          saveGame();
+          render();
+          const da = document.getElementById("leaderDetailAvatar");
+          if(da) da.src = state.leader.avatarDataUrl;
+          const kb = Math.round(state.leader.avatarDataUrl.length/1024*3/4);
+          toast("头像更换成功（已压缩至 ~"+kb+"KB）");
+        });
+      };
+      img.src = evt.target.result;
     };
-    img.src = evt.target.result;
-  };
-  reader.readAsDataURL(f);
-});
+    reader.readAsDataURL(f);
+  });
+}
 function compressAvatar(img, step, cb){
-  const qualities = [0.82, 0.60, 0.40, 0.25];
-  const MAX = CONFIG.AVATAR_MAX_KB * 1024;  // 最终 DataURL 字节安全上限（字符量约等于 bytes*4/3，这里留安全余量）
-  const MAX_SIDE = 512;
-  // 等比缩放到 MAX_SIDE × MAX_SIDE 内
+  const C = GameConfig.values.avatar.compress;
+  const qualities = C.qualitySteps;
+  const MAX_DATAURL_CHARS = C.dataUrlMaxKB * 1024 * 4/3 + 2000;  // DataURL 字符上限（安全边界）
   let w = img.naturalWidth, h = img.naturalHeight;
-  if(w > MAX_SIDE || h > MAX_SIDE){
-    const r = Math.min(MAX_SIDE/w, MAX_SIDE/h);
+  if(w > C.maxSide || h > C.maxSide){
+    const r = Math.min(C.maxSide/w, C.maxSide/h);
     w = Math.round(w*r); h = Math.round(h*r);
   }
   const q = qualities[Math.min(step, qualities.length-1)];
   const canvas = document.createElement("canvas");
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
-  // 白底填充（处理带透明通道的 PNG 避免 JPEG 压缩发黑）
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0,0,w,h);
   ctx.drawImage(img, 0, 0, w, h);
   const url = canvas.toDataURL("image/jpeg", q);
-  if(url.length <= MAX * 4/3 + 2000){  // DataURL 字符上限粗略换算 + 安全边界
+  if(url.length <= MAX_DATAURL_CHARS){
     state.leader.avatarDataUrl = url;
     cb(true);
     return;
@@ -538,19 +559,19 @@ function compressAvatar(img, step, cb){
   if(step < qualities.length-1){
     compressAvatar(img, step+1, cb);
   }else{
-    // 最后一级如果还超，再降尺寸到 256×256 后压一次
-    const w2 = Math.min(w, 256), h2 = Math.min(h, 256);
+    // 最终兜底：再缩尺寸
+    const w2 = Math.min(w, C.fallbackSide), h2 = Math.min(h, C.fallbackSide);
     const c2 = document.createElement("canvas");
     c2.width = w2; c2.height = h2;
     const cx = c2.getContext("2d");
     cx.fillStyle="#fff"; cx.fillRect(0,0,w2,h2);
     cx.drawImage(img, 0, 0, w2, h2);
-    const url2 = c2.toDataURL("image/jpeg", 0.2);
+    const url2 = c2.toDataURL("image/jpeg", C.fallbackQuality);
     state.leader.avatarDataUrl = url2;
     cb(true);
   }
 }
-function triggerAvatarUpload(){ fileInput.click(); }
+function triggerAvatarUpload(){ if(fileInput) fileInput.click(); else document.getElementById("fileUpload").click(); }
 
 /* ---- 分配/召回 ---- */
 function doAssign(id, from){
@@ -572,21 +593,23 @@ function doRecall(id, from){
 /* ---- 建筑弹窗 ---- */
 function openBuilding(key){
   const b = state.buildings[key];
-  const m = BUILDING_META[key];
+  const m = GameConfig.buildings.buildingMeta[key];
+  const uiT = GameConfig.ui.uiText;
   let extra = "";
   if(key==="dian"){
     extra = `<div class="info-row"><span>弟子上限</span><span>${discipleCap()}（掌门不计入）</span></div>`;
   }else if(key==="kuang"){
     const mm = leaderOnDuty();
     extra = `<div class="info-row"><span>工位</span><span>${b.workerIds.length} / ${kuangCap()}</span></div>
-            <div class="info-row"><span>士气加成</span><span>${mm?('掌门在岗，全员 +10% ✅'):'掌门未在岗'}</span></div>
+            <div class="info-row"><span>士气加成</span><span>${mm?(uiT.moraleOn||'掌门在岗，全员 +10% ✅'):(uiT.moraleOff||'掌门未在岗')}</span></div>
             <button class="btn qing full" onclick="closeModal();openDisciples()">分配掌门/弟子</button>`;
   }else if(key==="zhaomu"){
+    const cost = GameConfig.values.recruit.cost;
     const left = Math.max(0, Math.ceil((b.refreshCdEnd-Date.now())/1000));
-    const can = left<=0 && state.resources.lingshi>=CONFIG.RECRUIT_COST && state.disciples.length<discipleCap();
-    extra = `<div class="info-row"><span>单次消耗</span><span><img src="assets/img/icon_lingshi.jpg" style="width:16px;vertical-align:middle"> ${CONFIG.RECRUIT_COST}</span></div>
+    const can = left<=0 && state.resources.lingshi>=cost && state.disciples.length<discipleCap();
+    extra = `<div class="info-row"><span>单次消耗</span><span><img src="${GameConfig.ui.images.iconLingshi}" style="width:16px;vertical-align:middle"> ${cost}</span></div>
             <div class="info-row"><span>刷新CD</span><span>${recruitCdSec()}s</span></div>
-            <div class="info-row"><span>状态</span><span>${left>0?"冷却中 "+left+"s":"可招募"}</span></div>
+            <div class="info-row"><span>状态</span><span>${left>0?("冷却中 "+left+"s"):"可招募"}</span></div>
             <button class="btn full ${can?'':'gray'}" ${can?'onclick="doRecruit()"':'disabled'}>招 募</button>`;
   }
   const cost = upgradeCost(b.level);
@@ -597,8 +620,8 @@ function openBuilding(key){
     <div class="m-sub">${m.desc}</div>
     <div class="info-row"><span>当前等级</span><span>Lv.${b.level}</span></div>
     ${extra}
-    <div class="info-row"><span>升级消耗</span><span><img src="assets/img/icon_lingshi.jpg" style="width:16px;vertical-align:middle"> ${cost}</span></div>
-    ${capBlocked?'<div class="hint-warn">需先升级宗门大殿</div>':''}
+    <div class="info-row"><span>升级消耗</span><span><img src="${GameConfig.ui.images.iconLingshi}" style="width:16px;vertical-align:middle"> ${cost}</span></div>
+    ${capBlocked?('<div class="hint-warn">'+(uiT.buildingLockedHint||'需先升级宗门大殿')+'</div>'):''}
     <button class="btn full ${canUp?'':'gray'}" ${canUp?'onclick="doUpgrade(\''+key+'\')"':'disabled'}>升级到 Lv.${b.level+1}</button>
   `);
 }
@@ -614,12 +637,13 @@ function doRecruit(){
   if(!r.ok){ toast(r.msg); return; }
   render();
   const d = r.disciple;
+  const starterAvatar = GameConfig.ui.images.discipleLianqi || GameConfig.resources.resources.lingshi?.img || "";
   openModal(`
     <h2>招募成功<button class="close" onclick="closeModal()">×</button></h2>
     <div class="recruit-result">
-      <img src="assets/img/disciple_lianqi.jpg" alt="弟子">
+      <img src="${starterAvatar}" alt="弟子">
       <div class="r-name">${d.name}</div>
-      <div class="m-sub">练气境 · Lv.1</div>
+      <div class="m-sub">${d.realm}境 · Lv.1</div>
     </div>
     <button class="btn full" onclick="closeModal();openDisciples()">查看弟子</button>
     <button class="btn wood full" onclick="closeModal()">继续</button>
@@ -642,10 +666,11 @@ function openDisciples(){
     const nameHtml = isL
       ? `<span>${d.name}</span><span class="tag-gold">掌门</span>`
       : d.name;
-    const avatar = isL ? leaderAvatarSrc() : "assets/img/disciple_lianqi.jpg";
+    const avatar = isL ? leaderAvatarSrc() : (GameConfig.ui.images.discipleLianqi||"assets/img/disciple_lianqi.jpg");
+    const need = H.expNeeded(realmCodeOfName(d.realm), d.level);
     html += `<div class="d-item ${isL?'is-leader':''}" onclick="closeModal();${isL?'openLeaderDetail()':`openDiscipleDetail('${d.id}')`}">
       <img src="${avatar}">
-      <div class="d-info"><div class="d-name">${nameHtml}</div><div class="d-meta">${d.realm} · Lv.${d.level} · 经验${Math.floor(d.exp)}/${expNeeded(d.level)}</div></div>
+      <div class="d-info"><div class="d-name">${nameHtml}</div><div class="d-meta">${d.realm} · Lv.${d.level} · 经验${Math.floor(d.exp)}/${need}</div></div>
       ${tag}
     </div>`;
   });
@@ -656,11 +681,13 @@ function openDiscipleDetail(id){
   const d = getEntity(id);
   if(!d || d.isLeader){ openLeaderDetail(); return; }
   const mining = d.status==="mining";
-  const pct = d.level>=CONFIG.MAX_LEVEL ? 100 : Math.min(100, Math.floor(d.exp/expNeeded(d.level)*100));
+  const maxLv = H.maxLevel(realmCodeOfName(d.realm));
+  const need = H.expNeeded(realmCodeOfName(d.realm), d.level);
+  const pct = d.level>=maxLv ? 100 : Math.min(100, Math.floor(d.exp/need*100));
   openModal(`
     <h2>${d.name}<button class="close" onclick="closeModal()">×</button></h2>
-    <div class="m-sub">练气境 · Lv.${d.level} ${d.level>=CONFIG.MAX_LEVEL?'（已满级）':''}</div>
-    <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${expNeeded(d.level)}</span></div>
+    <div class="m-sub">${d.realm}境 · Lv.${d.level} ${d.level>=maxLv?'（已满级）':''}</div>
+    <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${need}</span></div>
     <div class="expbar"><div style="width:${pct}%"></div></div>
     <div class="info-row"><span>产出 / 10s</span><span>${producePer10s(d).toFixed(2)} 灵石</span></div>
     <div class="info-row"><span>状态</span><span>${mining?"采集中":"空闲"}</span></div>
@@ -674,7 +701,7 @@ function openDiscipleDetail(id){
   `);
 }
 
-/* ===== 10. 提示 ===== */
+/* ===== 9. 提示 ===== */
 let toastTimer = null;
 function toast(msg){
   const t = document.getElementById("toast");
@@ -683,44 +710,75 @@ function toast(msg){
   toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
 }
 
-/* ===== 11. 初始化 ===== */
-function init(){
-  state = loadGame();
-  let offlineResult = null;
-  if(!state){
-    state = newGame();
-    saveGame();
-  }else{
-    state.sect = state.sect || { name:"无名宗门" };
-    state.buildings = state.buildings || { dian:{level:1}, kuang:{level:1,workerIds:[]}, zhaomu:{level:1,refreshCdEnd:0} };
-    state.buildings.kuang.workerIds = state.buildings.kuang.workerIds || [];
-    state.disciples = state.disciples || [];
-    offlineResult = settleOffline();
-    saveGame();
-  }
-  render();
-  if(offlineResult && offlineResult.gain>0){
-    const mins = Math.floor(offlineResult.seconds/60);
-    const secs = offlineResult.seconds%60;
-    const morale = offlineResult.morale ? "（掌门在岗加成生效）" : "";
-    setTimeout(()=>openModal(`
-      <h2>欢迎回来<button class="close" onclick="closeModal()">×</button></h2>
-      <div class="recruit-result">
-        <img src="assets/img/icon_lingshi.jpg" style="border-radius:12px" alt="灵石">
-        <div class="r-name">+${offlineResult.gain} 灵石</div>
-        <div class="m-sub">离线 ${mins}分${secs}秒 · 矿场自动采集${morale}</div>
-      </div>
-      <button class="btn full" onclick="closeModal()">收下</button>
-    `),300);
+/* ===== 10. 初始化：loadAll 配置 → 注入主题 → 读档 → 开循环 ===== */
+async function bootstrap(){
+  try{
+    const res = await window.GameConfigLoader.loadAll();
+    GameConfig = res.cfg;
+    loadDiagnostics = { sourceMap: res.sourceMap, warnings: res.warnings, usedFallback: res.usedFallback };
+    H = window.GameConfigLoader.helpers(GameConfig);
+    // 主题色注入（覆盖 :root CSS 变量）
+    window.GameConfigLoader.injectThemeColors(GameConfig.ui.themeColors);
+    // 渲染前挂好上传句柄
+    setupAvatarHandler();
+    // 状态初始化
+    state = loadGame();
+    let offlineResult = null;
+    if(!state){
+      state = newGame();
+      saveGame();
+    }else{
+      offlineResult = settleOffline();
+      saveGame();
+    }
+    render();
+    // 启动 tick（按配置的 tickSeconds）
+    setInterval(tick, GameConfig.values.tickSeconds * 1000);
+    setInterval(render, 1000);
+    setInterval(()=>{
+      if(!document.getElementById("overlay").classList.contains("show")) renderBuildings();
+    }, 1000);
+    // 离线收益弹窗
+    if(offlineResult && offlineResult.gain>0){
+      const mins = Math.floor(offlineResult.seconds/60);
+      const secs = offlineResult.seconds%60;
+      const morale = offlineResult.morale ? "（掌门在岗加成生效）" : "";
+      setTimeout(()=>openModal(`
+        <h2>欢迎回来<button class="close" onclick="closeModal()">×</button></h2>
+        <div class="recruit-result">
+          <img src="${GameConfig.ui.images.iconLingshi}" style="border-radius:12px" alt="灵石">
+          <div class="r-name">+${offlineResult.gain} 灵石</div>
+          <div class="m-sub">离线 ${mins}分${secs}秒 · 矿场自动采集${morale}</div>
+        </div>
+        <button class="btn full" onclick="closeModal()">收下</button>
+      `),300);
+    }
+    running = true;
+    // 控制台暴露配置，方便孩子 F12 试玩：改 GameConfig.values.initLingshi 不会即时生效，改 .produce.basePer10s 等会在下次 tick 生效
+    // 正式改请改对应 JSON 文件然后刷新页面
+    console.log("[宗门] 配置加载完成：", {
+      usedFallback: loadDiagnostics.usedFallback,
+      sources: loadDiagnostics.sourceMap,
+      warnings: loadDiagnostics.warnings,
+      tip: "改数值请直接编辑 /workspace/assets/config/*.json，然后刷新页面。F12 控制台可临时改 GameConfig.values 做数值实验。"
+    });
+  }catch(err){
+    console.error(err);
+    openModal(`<h2>配置加载失败<button class="close" onclick="closeModal()">×</button></h2>
+      <div class="m-sub">请打开浏览器控制台查看详细错误</div>
+      <div class="hint-warn">${String(err.message||err)}</div>`);
   }
 }
-
-init();
-setInterval(tick, 10000);
-setInterval(render, 1000);
-setInterval(()=>{
-  if(!document.getElementById("overlay").classList.contains("show")) renderBuildings();
-},1000);
+// DOM 解析完成后启动
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", bootstrap);
+}else{
+  bootstrap();
+}
+// overlay 点击外部关闭
+document.addEventListener("DOMContentLoaded", ()=>{
+  document.getElementById("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeModal(); });
+});
 </script>
 </body>
 </html>

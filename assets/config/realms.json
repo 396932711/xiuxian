@@ -1,0 +1,54 @@
+{
+  "_version": "1.0",
+  "_desc": "境界定义：大境界的等级上限、基础产出倍率、突破需求预留、下一境界指向。当前阶段1只开放『练气』1-10级；阶段2开放『筑基』等直接在此表追加即可。",
+
+  "order": ["lianqi", "zhuji", "jindan"],
+
+  "realms": {
+    "lianqi": {
+      "id": "lianqi",
+      "name": "练气",
+      "maxLevel": 10,
+      "baseProduceMul": 1.0,
+      "discipleAvatarImg": "assets/img/disciple_lianqi.jpg",
+      "tagColor": "gray",
+      "_unlockAtStage": 1,
+      "breakthrough": {
+        "nextRealm": "zhuji",
+        "needPill": 1,
+        "needBreakthroughStone": 0,
+        "baseSuccessRate": 0.8
+      }
+    },
+    "zhuji": {
+      "id": "zhuji",
+      "name": "筑基",
+      "maxLevel": 10,
+      "baseProduceMul": 2.0,
+      "discipleAvatarImg": "assets/img/disciple_zhuji.jpg",
+      "tagColor": "cyan",
+      "_unlockAtStage": 2,
+      "breakthrough": {
+        "nextRealm": "jindan",
+        "needPill": 3,
+        "needBreakthroughStone": 0,
+        "baseSuccessRate": 0.7
+      }
+    },
+    "jindan": {
+      "id": "jindan",
+      "name": "金丹",
+      "maxLevel": 10,
+      "baseProduceMul": 4.0,
+      "discipleAvatarImg": "assets/img/disciple_jindan.jpg",
+      "tagColor": "gold",
+      "_unlockAtStage": 3,
+      "breakthrough": {
+        "nextRealm": null,
+        "needPill": 5,
+        "needBreakthroughStone": 2,
+        "baseSuccessRate": 0.6
+      }
+    }
+  }
+}
