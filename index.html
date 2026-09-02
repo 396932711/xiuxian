@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宗门</title>
+<style>
+  /* ===== 全局与主题 ===== */
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --qing:#3FA89A;       /* 青绿 */
+    --wood:#B58A4E;       /* 原木 */
+    --gold:#E8B84E;       /* 暖金 */
+    --ink:#3A4A5A;        /* 墨字 */
+    --cloud:#F4F7F4;      /* 云白 */
+    --panel:rgba(244,247,244,.94);
+    --line:rgba(58,74,90,.16);
+  }
+  html,body{height:100%;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--ink);
+    background:#cfe8e1 url("assets/img/scene_bg.jpg") center/cover no-repeat fixed;
+    overflow:hidden;
+    user-select:none;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+
+  /* ===== 主界面布局 ===== */
+  #app{display:flex;flex-direction:column;height:100%;}
+  #topbar{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 14px;background:linear-gradient(180deg,rgba(244,247,244,.98),rgba(244,247,244,.82));
+    border-bottom:2px solid var(--gold);box-shadow:0 2px 8px rgba(0,0,0,.08);
+    z-index:5;
+  }
+  .sect-name{font-weight:700;font-size:18px;color:var(--qing);margin-right:auto;display:flex;align-items:center;gap:6px;}
+  .sect-level{font-size:12px;background:var(--gold);color:#fff;padding:2px 8px;border-radius:999px;}
+  .res{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-weight:600;font-size:14px;}
+  .res img{width:20px;height:20px;}
+
+  #scene{flex:1;overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center;}
+  .buildings{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:820px;}
+  .b-card{
+    width:150px;background:var(--panel);border:2px solid var(--line);border-radius:16px;
+    padding:10px;text-align:center;transition:transform .12s, box-shadow .12s;
+    box-shadow:0 4px 12px rgba(0,0,0,.1);
+  }
+  .b-card:hover{transform:translateY(-4px);box-shadow:0 8px 18px rgba(0,0,0,.16);border-color:var(--gold);}
+  .b-card img{width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px;}
+  .b-card .b-name{font-weight:700;font-size:15px;color:var(--qing);}
+  .b-card .b-sub{font-size:12px;color:#6a7a86;margin-top:3px;}
+
+  #bottombar{
+    display:flex;background:var(--panel);border-top:2px solid var(--gold);padding:8px;z-index:5;
+  }
+  .nav-btn{flex:1;padding:12px;font-size:14px;color:var(--ink);background:transparent;border-radius:10px;margin:0 4px;transition:background .12s;}
+  .nav-btn:hover{background:rgba(232,184,78,.18);}
+  .nav-btn.active{background:var(--qing);color:#fff;font-weight:700;}
+
+  /* ===== 弹窗 ===== */
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10;}
+  #overlay.show{display:flex;align-items:center;justify-content:center;}
+  .modal{
+    width:min(440px,92vw);max-height:86vh;overflow:auto;background:var(--cloud);
+    border:2px solid var(--gold);border-radius:18px;padding:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);animation:pop .18s ease;
+  }
+  @keyframes pop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .modal h2{font-size:18px;color:var(--qing);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+  .modal .close{font-size:22px;color:#9aa;background:none;line-height:1;padding:0 4px;}
+  .modal .m-sub{font-size:12px;color:#6a7a86;margin-bottom:12px;}
+  .info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px;}
+  .info-row span:last-child{font-weight:600;}
+  .btn{
+    display:inline-block;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;
+    background:var(--gold);color:#fff;transition:filter .12s,transform .1s;
+  }
+  .btn:hover{filter:brightness(1.06);}
+  .btn:active{transform:scale(.97);}
+  .btn.wood{background:var(--wood);}
+  .btn.qing{background:var(--qing);}
+  .btn.gray{background:#bcc4cc;cursor:not-allowed;}
+  .btn.full{display:block;width:100%;margin-top:10px;}
+  .btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+
+  /* 弟子列表 */
+  .d-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+  .d-item{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;}
+  .d-item img{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#eef;}
+  .d-item .d-info{flex:1;}
+  .d-item .d-name{font-weight:700;font-size:14px;color:var(--ink);}
+  .d-item .d-meta{font-size:12px;color:#6a7a86;}
+  .d-item .d-tag{font-size:11px;padding:2px 8px;border-radius:999px;}
+  .tag-idle{background:#e8eee8;color:#5a7a5a;}
+  .tag-mining{background:#e3f0ee;color:var(--qing);}
+  .d-empty{text-align:center;color:#9aa;font-size:13px;padding:24px 0;}
+
+  /* 招募结果光效 */
+  .recruit-result{text-align:center;padding:10px 0;}
+  .recruit-result img{width:90px;height:90px;border-radius:50%;object-fit:cover;animation:glow 1s ease;}
+  @keyframes glow{0%{box-shadow:0 0 0 0 rgba(232,184,78,.7);}100%{box-shadow:0 0 0 20px rgba(232,184,78,0);}}
+  .recruit-result .r-name{font-size:18px;font-weight:700;color:var(--qing);margin:8px 0 2px;}
+
+  input.txt{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;}
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(58,74,90,.92);color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="sect-name"><span id="sectName">无名宗门</span><span class="sect-level" id="sectLevel">Lv.1</span></div>
+    <div class="res"><img src="assets/img/icon_lingshi.jpg" alt="灵石"><span id="lingshi">0</span></div>
+  </header>
+  <main id="scene">
+    <div class="buildings" id="buildings"></div>
+  </main>
+  <nav id="bottombar">
+    <button class="nav-btn" onclick="openDisciples()">弟子</button>
+    <button class="nav-btn" onclick="renderBuildings()">建筑</button>
+    <button class="nav-btn" onclick="toast('背包功能将在后续版本开放')">背包</button>
+    <button class="nav-btn" onclick="toast('任务功能将在后续版本开放')">任务</button>
+  </nav>
+</div>
+<div id="overlay"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+ * 宗门 v1.0 · 单文件实现
+ * 模块分区：Config / Save / 公式 / 弟子 / 建筑 / 主循环 / 渲染
+ * ============================================================ */
+
+/* ===== 1. Config 配置常量 ===== */
+const CONFIG = {
+  BASE_PRODUCE: 1.5,        // 练气1级弟子基础产出（灵石/10秒）
+  PRODUCE_PER_LEVEL: 0.1,   // 每级产出 +10%
+  UPGRADE_BASE: 100,        // 建筑升级基础消耗
+  UPGRADE_GROWTH: 1.3,      // 每级消耗递增系数
+  EXP_BASE: 100,            // 升级基础经验
+  EXP_GROWTH: 1.3,
+  MAX_LEVEL: 10,            // 练气境界满级
+  RECRUIT_COST: 50,         // 招募单次消耗灵石
+  RECRUIT_CD_BASE: 30,      // 招募刷新CD基础（秒）
+  RECRUIT_CD_GROWTH: 0.9,   // 每级CD缩短
+  RECRUIT_CD_MIN: 5,        // CD下限
+  OFFLINE_CAP: 7200,        // 离线收益封顶（秒，2小时）
+  IDLE_EXP: 1,              // 弟子每10秒获得经验（闲置/在岗皆获）
+  STORAGE_KEY: 'zongmen_save_v1',
+  INIT_LINGSHI: 80          // 初始灵石（便于首次招募）
+};
+
+/* 名字库（Config 常量，不入存档） */
+const NAME_LIB = {
+  surnames: ["张","王","李","赵","陈","林","周","沈","顾","苏","萧","楚","凌","叶","秦","墨","白","云","风","陆"],
+  given:    ["道凡","清风","明月","云鹤","青衣","子期","长歌","无尘","若虚","观山","听雨","辞树","归尘","忘机","问渠","知秋","望舒","星河","怀瑾","漱石"]
+};
+
+/* 建筑元信息（图标、显示名） */
+const BUILDING_META = {
+  dian:   { name:"宗门大殿", img:"assets/img/building_dian.jpg",   desc:"宗门核心，决定弟子上限与建筑等级上限" },
+  kuang:  { name:"灵矿场",   img:"assets/img/building_kuang.jpg",  desc:"分配弟子采集灵石" },
+  zhaomu: { name:"招募堂",   img:"assets/img/building_zhaomu.jpg", desc:"消耗灵石招募新弟子" }
+};
+
+/* ===== 2. Save 存档 ===== */
+let state = null;  // 当前存档（运行时状态）
+
+function newGame(){
+  return {
+    version:"1.0",
+    lastSaveTime:Date.now(),
+    sect:{ name:"无名宗门" },
+    resources:{ lingshi:CONFIG.INIT_LINGSHI },
+    buildings:{
+      dian:{ level:1 },
+      kuang:{ level:1, workerIds:[] },
+      zhaomu:{ level:1, refreshCdEnd:0 }
+    },
+    disciples:[],
+    nextDiscipleId:1
+  };
+}
+function loadGame(){
+  try{
+    const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function saveGame(){
+  state.lastSaveTime = Date.now();
+  try{ localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* ===== 3. 公式 ===== */
+function producePer10s(d){  // 单弟子每10秒产出
+  return CONFIG.BASE_PRODUCE * (1 + CONFIG.PRODUCE_PER_LEVEL*(d.level-1)) * d.base.root;
+}
+function upgradeCost(level){  // 当前level升到level+1所需灵石
+  return Math.floor(CONFIG.UPGRADE_BASE * Math.pow(CONFIG.UPGRADE_GROWTH, level-1));
+}
+function expNeeded(level){  // 当前level升到level+1所需经验
+  return Math.floor(CONFIG.EXP_BASE * Math.pow(CONFIG.EXP_GROWTH, level-1));
+}
+function discipleCap(){ return 2 + state.buildings.dian.level; }
+function kuangCap(){ return 1 + state.buildings.kuang.level; }
+function recruitCdSec(){
+  return Math.max(CONFIG.RECRUIT_CD_BASE * Math.pow(CONFIG.RECRUIT_CD_GROWTH, state.buildings.zhaomu.level-1), CONFIG.RECRUIT_CD_MIN);
+}
+
+/* ===== 4. 离线结算 ===== */
+function settleOffline(){
+  const now = Date.now();
+  const offlineMs = Math.min(now - state.lastSaveTime, CONFIG.OFFLINE_CAP*1000);
+  const ticks = Math.floor(offlineMs/10000);
+  if(ticks <= 0) return null;
+  let gain = 0;
+  for(const id of state.buildings.kuang.workerIds){
+    const d = state.disciples.find(x => x.id===id);
+    if(d) gain += producePer10s(d) * ticks;
+  }
+  gain = Math.floor(gain);
+  state.resources.lingshi += gain;
+  return { seconds:Math.floor(offlineMs/1000), gain, ticks };
+}
+
+/* ===== 5. 弟子操作 ===== */
+function genName(){
+  const s = NAME_LIB.surnames[Math.floor(Math.random()*NAME_LIB.surnames.length)];
+  const g = NAME_LIB.given[Math.floor(Math.random()*NAME_LIB.given.length)];
+  return s+g;
+}
+function recruit(){
+  if(state.disciples.length >= discipleCap()) return {ok:false,msg:"弟子上限已满，请先升级宗门大殿"};
+  if(state.resources.lingshi < CONFIG.RECRUIT_COST) return {ok:false,msg:"灵石不足"};
+  if(Date.now() < state.buildings.zhaomu.refreshCdEnd) return {ok:false,msg:"招募冷却中，请稍候"};
+  state.resources.lingshi -= CONFIG.RECRUIT_COST;
+  state.buildings.zhaomu.refreshCdEnd = Date.now() + recruitCdSec()*1000;
+  const d = {
+    id:"d_"+(state.nextDiscipleId++),
+    name:genName(), realm:"练气", level:1, exp:0,
+    status:"idle", assignTo:null, base:{ root:1.0 }
+  };
+  state.disciples.push(d);
+  saveGame();
+  return {ok:true, disciple:d};
+}
+function renameDisciple(id, newName){
+  const d = state.disciples.find(x=>x.id===id);
+  if(!d) return false;
+  newName = (newName||"").trim();
+  if(newName.length<1 || newName.length>6) return false;
+  d.name = newName; saveGame(); return true;
+}
+function assignToKuang(id){
+  const d = state.disciples.find(x=>x.id===id);
+  if(!d) return {ok:false,msg:"弟子不存在"};
+  if(d.status!=="idle") return {ok:false,msg:"该弟子已在岗"};
+  if(state.buildings.kuang.workerIds.length >= kuangCap()) return {ok:false,msg:"矿场工位已满，请升级灵矿场"};
+  d.status="mining"; d.assignTo="kuang";
+  state.buildings.kuang.workerIds.push(d.id);
+  saveGame(); return {ok:true};
+}
+function recallDisciple(id){
+  const d = state.disciples.find(x=>x.id===id);
+  if(!d || d.status!=="mining") return {ok:false};
+  d.status="idle"; d.assignTo=null;  // 召回无损：状态直接转空闲
+  state.buildings.kuang.workerIds = state.buildings.kuang.workerIds.filter(x=>x!==id);
+  saveGame(); return {ok:true};
+}
+
+/* ===== 6. 建筑升级 ===== */
+function upgradeBuilding(key){
+  const b = state.buildings[key];
+  // 非大殿建筑等级不能超过大殿等级
+  if(key!=="dian" && b.level >= state.buildings.dian.level) return {ok:false,msg:"需先升级宗门大殿"};
+  const cost = upgradeCost(b.level);
+  if(state.resources.lingshi < cost) return {ok:false,msg:"灵石不足"};
+  state.resources.lingshi -= cost;
+  b.level++;
+  saveGame();
+  return {ok:true};
+}
+
+/* ===== 7. 主循环 ===== */
+function tick(){  // 每10秒：产出 + 经验 + 自动升级
+  // 灵石产出
+  for(const id of state.buildings.kuang.workerIds){
+    const d = state.disciples.find(x=>x.id===id);
+    if(d) state.resources.lingshi += producePer10s(d);
+  }
+  state.resources.lingshi = Math.floor(state.resources.lingshi*100)/100;  // 保留两位小数避免浮点累积
+  // 经验（闲置与在岗弟子皆获，孩子不操作也能成长）
+  for(const d of state.disciples){
+    if(d.level < CONFIG.MAX_LEVEL){
+      d.exp += CONFIG.IDLE_EXP;
+      while(d.level < CONFIG.MAX_LEVEL && d.exp >= expNeeded(d.level)){
+        d.exp -= expNeeded(d.level);
+        d.level++;
+      }
+    }else{ d.exp = 0; }
+  }
+  saveGame();
+}
+
+/* ===== 8. 渲染 ===== */
+function render(){
+  // 顶部栏
+  document.getElementById("sectName").textContent = state.sect.name;
+  document.getElementById("sectLevel").textContent = "Lv."+state.buildings.dian.level;
+  document.getElementById("lingshi").textContent = Math.floor(state.resources.lingshi);
+  renderBuildings();
+}
+function renderBuildings(){
+  const wrap = document.getElementById("buildings");
+  wrap.innerHTML = "";
+  for(const key of ["dian","kuang","zhaomu"]){
+    const b = state.buildings[key];
+    const m = BUILDING_META[key];
+    let sub = "Lv."+b.level;
+    if(key==="kuang") sub += " · 工位 "+b.workerIds.length+"/"+kuangCap();
+    if(key==="dian") sub += " · 弟子上限 "+state.disciples.length+"/"+discipleCap();
+    if(key==="zhaomu"){
+      const left = Math.max(0, Math.ceil((b.refreshCdEnd-Date.now())/1000));
+      sub += left>0 ? " · 冷却 "+left+"s" : " · 可招募";
+    }
+    const el = document.createElement("div");
+    el.className="b-card";
+    el.innerHTML = `<img src="${m.img}"><div class="b-name">${m.name}</div><div class="b-sub">${sub}</div>`;
+    el.onclick = ()=>openBuilding(key);
+    wrap.appendChild(el);
+  }
+}
+
+/* ===== 9. 弹窗 ===== */
+function openModal(html){
+  document.getElementById("modal").innerHTML = html;
+  document.getElementById("overlay").classList.add("show");
+}
+function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
+document.getElementById("overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeModal(); });
+
+function openBuilding(key){
+  const b = state.buildings[key];
+  const m = BUILDING_META[key];
+  let extra = "";
+  if(key==="dian"){
+    extra = `<div class="info-row"><span>弟子上限</span><span>${discipleCap()}</span></div>`;
+  }else if(key==="kuang"){
+    extra = `<div class="info-row"><span>工位</span><span>${b.workerIds.length} / ${kuangCap()}</span></div>
+            <button class="btn qing full" onclick="closeModal();openDisciples()">分配弟子</button>`;
+  }else if(key==="zhaomu"){
+    const left = Math.max(0, Math.ceil((b.refreshCdEnd-Date.now())/1000));
+    const can = left<=0 && state.resources.lingshi>=CONFIG.RECRUIT_COST && state.disciples.length<discipleCap();
+    extra = `<div class="info-row"><span>单次消耗</span><span><img src="assets/img/icon_lingshi.jpg" style="width:16px;vertical-align:middle"> ${CONFIG.RECRUIT_COST}</span></div>
+            <div class="info-row"><span>刷新CD</span><span>${recruitCdSec()}s</span></div>
+            <div class="info-row"><span>状态</span><span>${left>0?"冷却中 "+left+"s":"可招募"}</span></div>
+            <button class="btn full ${can?'':'gray'}" ${can?'onclick="doRecruit()"':'disabled'}>招 募</button>`;
+  }
+  const cost = upgradeCost(b.level);
+  const capBlocked = (key!=="dian" && b.level>=state.buildings.dian.level);
+  const canUp = !capBlocked && state.resources.lingshi>=cost;
+  openModal(`
+    <h2>${m.name}<button class="close" onclick="closeModal()">×</button></h2>
+    <div class="m-sub">${m.desc}</div>
+    <div class="info-row"><span>当前等级</span><span>Lv.${b.level}</span></div>
+    ${extra}
+    <div class="info-row"><span>升级消耗</span><span><img src="assets/img/icon_lingshi.jpg" style="width:16px;vertical-align:middle"> ${cost}</span></div>
+    ${capBlocked?'<div class="m-sub" style="color:#c44">需先升级宗门大殿</div>':''}
+    <button class="btn full ${canUp?'':'gray'}" ${canUp?'onclick="doUpgrade(\''+key+'\')"':'disabled'}>升级到 Lv.${b.level+1}</button>
+  `);
+}
+function doUpgrade(key){
+  const r = upgradeBuilding(key);
+  if(!r.ok){ toast(r.msg); return; }
+  toast("升级成功");
+  render();
+  openBuilding(key);
+}
+function doRecruit(){
+  const r = recruit();
+  if(!r.ok){ toast(r.msg); return; }
+  render();
+  const d = r.disciple;
+  openModal(`
+    <h2>招募成功<button class="close" onclick="closeModal()">×</button></h2>
+    <div class="recruit-result">
+      <img src="assets/img/disciple_lianqi.jpg" alt="弟子">
+      <div class="r-name">${d.name}</div>
+      <div class="m-sub">练气境 · Lv.1</div>
+    </div>
+    <button class="btn full" onclick="closeModal();openDisciples()">查看弟子</button>
+    <button class="btn wood full" onclick="closeModal()">继续</button>
+  `);
+}
+
+function openDisciples(){
+  if(state.disciples.length===0){
+    openModal(`<h2>弟子<button class="close" onclick="closeModal()">×</button></h2><div class="d-empty">尚无弟子，前往招募堂招募</div>
+      <button class="btn full" onclick="closeModal();openBuilding('zhaomu')">前往招募堂</button>`);
+    return;
+  }
+  let html = `<h2>弟子 (${state.disciples.length}/${discipleCap()})<button class="close" onclick="closeModal()">×</button></h2><div class="d-list">`;
+  for(const d of state.disciples){
+    const tag = d.status==="mining"?`<span class="d-tag tag-mining">采集中</span>`:`<span class="d-tag tag-idle">空闲</span>`;
+    html += `<div class="d-item" onclick="openDiscipleDetail('${d.id}')">
+      <img src="assets/img/disciple_lianqi.jpg">
+      <div class="d-info"><div class="d-name">${d.name}</div><div class="d-meta">练气 · Lv.${d.level} · 经验${Math.floor(d.exp)}/${expNeeded(d.level)}</div></div>
+      ${tag}
+    </div>`;
+  }
+  html += `</div>`;
+  openModal(html);
+}
+function openDiscipleDetail(id){
+  const d = state.disciples.find(x=>x.id===id);
+  if(!d) return;
+  const mining = d.status==="mining";
+  openModal(`
+    <h2>${d.name}<button class="close" onclick="closeModal()">×</button></h2>
+    <div class="m-sub">练气境 · Lv.${d.level}</div>
+    <div class="info-row"><span>境界</span><span>练气 Lv.${d.level}</span></div>
+    <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${expNeeded(d.level)}</span></div>
+    <div class="info-row"><span>产出/10s</span><span>${producePer10s(d).toFixed(2)} 灵石</span></div>
+    <div class="info-row"><span>状态</span><span>${mining?"采集中":"空闲"}</span></div>
+    <div class="btn-row">
+      <button class="btn wood" onclick="startRename('${d.id}')">改名</button>
+      ${mining
+        ? `<button class="btn qing" onclick="doRecall('${d.id}')">召回</button>`
+        : `<button class="btn qing" onclick="doAssign('${d.id}')">分配至矿场</button>`}
+    </div>
+  `);
+}
+function startRename(id){
+  const d = state.disciples.find(x=>x.id===id);
+  openModal(`
+    <h2>改名<button class="close" onclick="closeModal();openDiscipleDetail('${id}')">×</button></h2>
+    <div class="m-sub">当前：${d.name}（1-6个字符）</div>
+    <input class="txt" id="renameInput" maxlength="6" value="${d.name}" onkeydown="if(event.key==='Enter')submitRename('${id}')">
+    <button class="btn full" onclick="submitRename('${id}')">确认</button>
+  `);
+  setTimeout(()=>document.getElementById("renameInput").focus(),50);
+}
+function submitRename(id){
+  const v = document.getElementById("renameInput").value;
+  if(!renameDisciple(id, v)){ toast("名字需1-6个字符"); return; }
+  toast("改名成功");
+  openDiscipleDetail(id);
+}
+function doAssign(id){
+  const r = assignToKuang(id);
+  if(!r.ok){ toast(r.msg); return; }
+  toast("已分配至灵矿场");
+  render();
+  openDiscipleDetail(id);
+}
+function doRecall(id){
+  recallDisciple(id);
+  toast("已召回");
+  render();
+  openDiscipleDetail(id);
+}
+
+/* ===== 10. 提示 ===== */
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* ===== 11. 初始化 ===== */
+function init(){
+  state = loadGame();
+  let offlineResult = null;
+  if(!state){
+    state = newGame();
+    saveGame();
+  }else{
+    // 兼容旧存档字段
+    state.sect = state.sect || { name:"无名宗门" };
+    state.buildings = state.buildings || { dian:{level:1}, kuang:{level:1,workerIds:[]}, zhaomu:{level:1,refreshCdEnd:0} };
+    state.buildings.kuang.workerIds = state.buildings.kuang.workerIds || [];
+    state.disciples = state.disciples || [];
+    offlineResult = settleOffline();
+    saveGame();
+  }
+  render();
+  if(offlineResult && offlineResult.gain>0){
+    const mins = Math.floor(offlineResult.seconds/60);
+    const secs = offlineResult.seconds%60;
+    setTimeout(()=>openModal(`
+      <h2>欢迎回来<button class="close" onclick="closeModal()">×</button></h2>
+      <div class="recruit-result">
+        <img src="assets/img/icon_lingshi.jpg" style="border-radius:12px">
+        <div class="r-name">+${offlineResult.gain} 灵石</div>
+        <div class="m-sub">离线 ${mins}分${secs}秒 · 矿场自动采集</div>
+      </div>
+      <button class="btn full" onclick="closeModal()">收下</button>
+    `),300);
+  }
+}
+
+init();
+setInterval(tick, 10000);   // 每10秒：产出 + 经验
+setInterval(render, 1000); // 每1秒：刷新UI
+setInterval(()=>{ // 招募CD/倒计时实时刷新（仅在弹窗关闭时轻量更新顶部）
+  if(!document.getElementById("overlay").classList.contains("show")) renderBuildings();
+},1000);
+</script>
+</body>
+</html>
