@@ -1,6 +1,6 @@
 {
-  "_version": "1.0",
-  "_desc": "建筑定义：名称、图片、描述、升级依赖与工位/上限公式。新增建筑时在此表新增 key，同时在 buildingMeta 与 UI 流程补充逻辑（代码会按 key 自动加载）。",
+  "_version": "1.1",
+  "_desc": "建筑定义（v1.4 UI 优化新增位置/尺寸字段）：名称、图片、描述、升级依赖、工位/上限公式、以及在场景背景图中的摆放位置。新增建筑时在此表新增 key，同时在 buildingMeta 与 UI 流程补充逻辑（代码会按 key 自动加载）。position 四值全部用『场景区』#scene 的宽高百分比，这样换屏幕尺寸依然对齐背景（比如大殿放在左上角远景位，矿场放中部靠山位，招募堂放右下入口位）。",
 
   "order": ["dian", "kuang", "zhaomu"],
 
@@ -13,6 +13,13 @@
       "isCore": true,
       "capRules": {
         "discipleCap": { "type": "linear", "base": 2, "perLevel": 1, "_comment": "大殿每升1级，弟子上限 +1（掌门不计入）" }
+      },
+      "position": { "x": 50, "y": 28, "w": 24, "h": 38, "_unit": "percent of #scene size；x/y 是卡片中心在场景中的位置" },
+      "labelPosition": "bottom",
+      "zIndex": 50,
+      "cardStyle": {
+        "_comment": "留空使用全局 --building-* CSS 变量；特殊建筑可在此覆盖（背景、边框、padding、shadow 等 CSS 属性）",
+        "boxShadow": "0 10px 24px rgba(0,0,0,.18), 0 0 0 3px rgba(232,184,78,.35)"
       }
     },
     "kuang": {
@@ -22,14 +29,22 @@
       "desc": "分配掌门与弟子采集灵石",
       "workerType": "mining",
       "slotCap": { "type": "linear", "base": 1, "perLevel": 1, "_comment": "工位 = base + perLevel × 矿场等级" },
-      "produces": ["lingshi"]
+      "produces": ["lingshi"],
+      "position": { "x": 22, "y": 60, "w": 18, "h": 30 },
+      "labelPosition": "right",
+      "zIndex": 40,
+      "cardStyle": {}
     },
     "zhaomu": {
       "id": "zhaomu",
       "name": "招募堂",
       "img": "assets/img/building_zhaomu.jpg",
       "desc": "消耗灵石招募新弟子",
-      "workerType": null
+      "workerType": null,
+      "position": { "x": 78, "y": 64, "w": 16, "h": 26 },
+      "labelPosition": "left",
+      "zIndex": 40,
+      "cardStyle": {}
     }
   }
 }

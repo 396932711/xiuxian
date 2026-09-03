@@ -38,12 +38,15 @@
       recruit: { cost: 50, cdBaseSeconds: 30, cdGrowthPerLevel: 0.9, cdMinSeconds: 5 }
     },
     buildings: {
-      _version: "1.0",
+      _version: "1.1",
       order: ["dian", "kuang", "zhaomu"],
       buildingMeta: {
-        dian:   { id:"dian", name:"宗门大殿", img:"assets/img/building_dian.jpg",   desc:"宗门核心，决定弟子上限与建筑等级上限", isCore:true, capRules:{discipleCap:{type:"linear",base:2,perLevel:1}} },
-        kuang:  { id:"kuang", name:"灵矿场",   img:"assets/img/building_kuang.jpg",  desc:"分配掌门与弟子采集灵石", workerType:"mining", slotCap:{type:"linear",base:1,perLevel:1}, produces:["lingshi"] },
-        zhaomu: { id:"zhaomu", name:"招募堂",   img:"assets/img/building_zhaomu.jpg", desc:"消耗灵石招募新弟子", workerType:null }
+        dian:   { id:"dian", name:"宗门大殿", img:"assets/img/building_dian.jpg",   desc:"宗门核心，决定弟子上限与建筑等级上限", isCore:true, capRules:{discipleCap:{type:"linear",base:2,perLevel:1}},
+                   position:{x:50,y:28,w:24,h:38}, labelPosition:"bottom", zIndex:50, cardStyle:{boxShadow:"0 10px 24px rgba(0,0,0,.18), 0 0 0 3px rgba(232,184,78,.35)"} },
+        kuang:  { id:"kuang", name:"灵矿场",   img:"assets/img/building_kuang.jpg",  desc:"分配掌门与弟子采集灵石", workerType:"mining", slotCap:{type:"linear",base:1,perLevel:1}, produces:["lingshi"],
+                   position:{x:22,y:60,w:18,h:30}, labelPosition:"right",  zIndex:40, cardStyle:{} },
+        zhaomu: { id:"zhaomu", name:"招募堂",   img:"assets/img/building_zhaomu.jpg", desc:"消耗灵石招募新弟子", workerType:null,
+                   position:{x:78,y:64,w:16,h:26}, labelPosition:"left",   zIndex:40, cardStyle:{} }
       }
     },
     realms: {
@@ -64,7 +67,7 @@
       given:    ["道凡","清风","明月","云鹤","青衣","子期","长歌","无尘","若虚","观山","听雨","辞树","归尘","忘机","问渠","知秋","望舒","星河","怀瑾","漱石"]
     },
     ui: {
-      _version: "1.0",
+      _version: "1.1",
       sect: { defaultName: "无名宗门" },
       images: {
         sceneBg:      "assets/img/scene_bg.jpg",
@@ -75,6 +78,26 @@
         discipleLianqi:"assets/img/disciple_lianqi.jpg"
       },
       themeColors: { qing:"#3FA89A", wood:"#B58A4E", gold:"#E8B84E", ink:"#3A4A5A", cloud:"#F4F7F4" },
+      layoutTokens: {
+        topbar_padding:"6px 10px", topbar_gap:"10px", topbar_border_width:"1.5px",
+        leader_entry_scale:"1", leader_avatar_size:"32px", leader_name_size:"13px", leader_lv_size:"10px",
+        sect_name_size:"15px", sect_badge_pad:"1px 6px", sect_badge_fs:"11px",
+        res_pill_pad:"3px 8px", res_pill_fs:"13px", res_icon_size:"18px",
+        bottombar_padding:"4px 6px", bottombar_border_w:"1.5px",
+        bottombar_btn_pad:"7px 4px", bottombar_btn_fs:"12px", bottombar_btn_radius:"8px",
+        bottombar_btn_margin:"0 3px", bottombar_gap:"2px",
+        scene_padding:"12px 16px", scene_min_h:"0", scene_bg_fixed:true,
+        building_card_pad:"6px", building_card_radius:"12px",
+        building_card_border:"1.5px solid var(--line)", building_card_bg:"rgba(244,247,244,.90)",
+        building_card_shadow:"0 4px 10px rgba(0,0,0,.10)",
+        building_img_height:"58%", building_img_radius:"8px",
+        building_name_fs:"13px", building_sub_fs:"11px", building_gap_px:"8",
+        building_mode:"positional", building_default_w:"18%", building_default_h:"30%",
+        modal_max_w:"440px", modal_padding:"14px 16px", modal_radius:"14px", modal_title_fs:"16px",
+        btn_pad:"8px 14px", btn_radius:"8px", btn_fs:"13px",
+        info_row_pad:"6px 0", info_row_fs:"13px",
+        toast_bottom:"72px"
+      },
       uiText: {
         bottomNav: ["弟子","建筑","背包","任务","设置"],
         buildingLockedHint: "需先升级宗门大殿",
@@ -229,6 +252,17 @@
       b.name = str(b.name, "buildings.buildingMeta."+key+".name", DEFAULTS.buildings.buildingMeta[key]?.name || key);
       b.img = str(b.img,   "buildings.buildingMeta."+key+".img",  DEFAULTS.buildings.buildingMeta[key]?.img  || "");
       b.desc= str(b.desc,  "buildings.buildingMeta."+key+".desc", DEFAULTS.buildings.buildingMeta[key]?.desc || "");
+      const defP = DEFAULTS.buildings.buildingMeta[key]?.position || {x:50,y:50,w:18,h:28};
+      b.position = obj(b.position, "buildings.buildingMeta."+key+".position");
+      b.position.x = num(b.position.x, "buildings.buildingMeta."+key+".position.x", defP.x);
+      b.position.y = num(b.position.y, "buildings.buildingMeta."+key+".position.y", defP.y);
+      b.position.w = num(b.position.w, "buildings.buildingMeta."+key+".position.w", defP.w);
+      b.position.h = num(b.position.h, "buildings.buildingMeta."+key+".position.h", defP.h);
+      const labelDef = DEFAULTS.buildings.buildingMeta[key]?.labelPosition || "bottom";
+      b.labelPosition = str(b.labelPosition, "buildings.buildingMeta."+key+".labelPosition", labelDef);
+      if(!["top","bottom","left","right"].includes(b.labelPosition)) b.labelPosition = labelDef;
+      b.zIndex = num(b.zIndex, "buildings.buildingMeta."+key+".zIndex", DEFAULTS.buildings.buildingMeta[key]?.zIndex || 40);
+      b.cardStyle = obj(b.cardStyle, "buildings.buildingMeta."+key+".cardStyle");
     }
 
     // ui
@@ -237,6 +271,13 @@
     cfg.ui.sect.defaultName = str(cfg.ui.sect.defaultName, "ui.sect.defaultName", DEFAULTS.ui.sect.defaultName);
     cfg.ui.images = obj(cfg.ui.images, "ui.images");
     cfg.ui.themeColors = obj(cfg.ui.themeColors, "ui.themeColors");
+    cfg.ui.layoutTokens = obj(cfg.ui.layoutTokens, "ui.layoutTokens");
+    // layoutTokens 全是 CSS 长度字符串，缺一个就从 DEFAULTS 抄回
+    for(const k of Object.keys(DEFAULTS.ui.layoutTokens)){
+      if(typeof cfg.ui.layoutTokens[k]!=="string" && typeof cfg.ui.layoutTokens[k]!=="number" && typeof cfg.ui.layoutTokens[k]!=="boolean"){
+        cfg.ui.layoutTokens[k] = DEFAULTS.ui.layoutTokens[k];
+      }
+    }
     cfg.ui.uiText = obj(cfg.ui.uiText, "ui.uiText");
 
     // nameLib
@@ -290,14 +331,32 @@
     return { cfg, sourceMap, warnings, usedFallback: anyFailed };
   }
 
-  // === 便捷：注入 CSS 主题变量 ===
+  // === 便捷：注入 CSS 主题变量（themeColors → --qing/…） + UI 尺寸 tokens（layoutTokens → --l-*） ===
   function injectThemeColors(colors){
     if(!colors || typeof colors!=="object") return;
     const style = document.createElement("style");
+    style.setAttribute("data-zongmen-theme","1");
     const rules = [":root {"];
     for(const [k,v] of Object.entries(colors)){
       if(typeof v==="string") rules.push(`  --${k}: ${v};`);
     }
+    rules.push("}");
+    style.textContent = rules.join("\n");
+    document.head.appendChild(style);
+  }
+  function injectLayoutTokens(tokens){
+    if(!tokens || typeof tokens!=="object") return;
+    const style = document.createElement("style");
+    style.setAttribute("data-zongmen-layout","1");
+    const rules = [":root {"];
+    for(const [k,v] of Object.entries(tokens)){
+      if(k==="_comment") continue;
+      let cssVal = v;
+      if(typeof v==="boolean") cssVal = v?"1":"0";
+      rules.push(`  --l-${k}: ${cssVal};`);
+    }
+    // 额外派生几个给 JS 读取做数字判断
+    rules.push(`  --l-building_mode_valid: ${String(tokens.building_mode==="positional" || tokens.building_mode==="flex" ? tokens.building_mode : "positional")};`);
     rules.push("}");
     style.textContent = rules.join("\n");
     document.head.appendChild(style);
@@ -361,6 +420,7 @@
     loadAll,
     validate,
     injectThemeColors,
+    injectLayoutTokens,
     helpers
   };
 })(window);

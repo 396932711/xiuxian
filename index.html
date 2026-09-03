@@ -7,17 +7,38 @@
 <!-- 配置加载器：从 assets/config/*.json 读取；file:/// 下 CORS 失败则自动回退到内嵌默认值 -->
 <script src="assets/config.js"></script>
 <style>
-  /* ===== 全局与主题 ===== */
+  /* ===== 全局与主题（主题色与 UI 尺寸均由 ConfigLoader 注入 CSS 变量覆盖） ===== */
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root{
-    --qing:#3FA89A;       /* 青绿（可被 ui.json themeColors 覆盖） */
-    --wood:#B58A4E;       /* 原木 */
-    --gold:#E8B84E;       /* 暖金 */
-    --gold-soft:#f7e5b8;
-    --ink:#3A4A5A;        /* 墨字 */
-    --cloud:#F4F7F4;      /* 云白 */
+    /* 主题色（会被 ui.json.themeColors 的 injectThemeColors 覆盖） */
+    --qing:#3FA89A; --wood:#B58A4E; --gold:#E8B84E; --gold-soft:#f7e5b8;
+    --ink:#3A4A5A;   --cloud:#F4F7F4;
     --panel:rgba(244,247,244,.94);
     --line:rgba(58,74,90,.16);
+    /* UI 尺寸 tokens（会被 ui.json.layoutTokens 的 injectLayoutTokens 覆盖） */
+    --l-topbar_padding:6px 10px; --l-topbar_gap:10px; --l-topbar_border_width:1.5px;
+    --l-leader_entry_scale:1; --l-leader_avatar_size:32px;
+    --l-leader_name_size:13px; --l-leader_lv_size:10px;
+    --l-sect_name_size:15px; --l-sect_badge_pad:1px 6px; --l-sect_badge_fs:11px;
+    --l-res_pill_pad:3px 8px; --l-res_pill_fs:13px; --l-res_icon_size:18px;
+    --l-bottombar_padding:4px 6px; --l-bottombar_border_w:1.5px;
+    --l-bottombar_btn_pad:7px 4px; --l-bottombar_btn_fs:12px;
+    --l-bottombar_btn_radius:8px; --l-bottombar_btn_margin:0 3px; --l-bottombar_gap:2px;
+    --l-scene_padding:12px 16px; --l-scene_min_h:0;
+    --l-building_card_pad:6px; --l-building_card_radius:12px;
+    --l-building_card_border:1.5px solid var(--line);
+    --l-building_card_bg:rgba(244,247,244,.90);
+    --l-building_card_shadow:0 4px 10px rgba(0,0,0,.10);
+    --l-building_img_height:58%; --l-building_img_radius:8px;
+    --l-building_name_fs:13px; --l-building_sub_fs:11px;
+    --l-building_gap_px:8;
+    --l-building_mode:positional;
+    --l-building_default_w:18%; --l-building_default_h:30%;
+    --l-modal_max_w:440px; --l-modal_padding:14px 16px; --l-modal_radius:14px; --l-modal_title_fs:16px;
+    --l-btn_pad:8px 14px; --l-btn_radius:8px; --l-btn_fs:13px;
+    --l-info_row_pad:6px 0; --l-info_row_fs:13px;
+    --l-toast_bottom:72px;
+    --l-building_mode_valid:positional;
   }
   html,body{height:100%;}
   body{
@@ -32,44 +53,79 @@
   /* ===== 主界面布局 ===== */
   #app{display:flex;flex-direction:column;height:100%;}
   #topbar{
-    display:flex;align-items:center;gap:12px;
-    padding:8px 12px;background:linear-gradient(180deg,rgba(244,247,244,.98),rgba(244,247,244,.82));
-    border-bottom:2px solid var(--gold);box-shadow:0 2px 8px rgba(0,0,0,.08);
+    display:flex;align-items:center;gap:var(--l-topbar_gap);
+    padding:var(--l-topbar_padding);
+    background:linear-gradient(180deg,rgba(244,247,244,.98),rgba(244,247,244,.82));
+    border-bottom:var(--l-topbar_border_width) solid var(--gold);box-shadow:0 2px 8px rgba(0,0,0,.08);
     z-index:5;flex-wrap:wrap;
   }
   /* 掌门入口（左上角，顶栏第1位） */
-  .leader-entry{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;
-    background:linear-gradient(135deg,#fff8e0,#fce7a8);border:2px solid var(--gold);
-    border-radius:999px;cursor:pointer;transition:transform .1s;box-shadow:0 2px 6px rgba(232,184,78,.35);}
-  .leader-entry:hover{transform:translateY(-1px);}
-  .leader-entry img.l-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 0 0 2px var(--gold);}
-  .leader-entry .l-meta{line-height:1.2;}
-  .leader-entry .l-name{font-weight:700;font-size:14px;color:#8a6310;display:flex;align-items:center;gap:4px;}
-  .leader-entry .l-badge{font-size:10px;background:var(--gold);color:#fff;padding:1px 5px;border-radius:999px;}
-  .leader-entry .l-lv{font-size:11px;color:#8a6310;opacity:.85;}
-
-  .sect-name{font-weight:700;font-size:17px;color:var(--qing);margin-left:4px;display:flex;align-items:center;gap:6px;}
-  .sect-level{font-size:12px;background:var(--qing);color:#fff;padding:2px 8px;border-radius:999px;}
-  .spacer{flex:1;}
-  .res{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-weight:600;font-size:14px;}
-  .res img{width:20px;height:20px;}
-
-  #scene{flex:1;overflow:auto;padding:16px;display:flex;align-items:center;justify-content:center;}
-  .buildings{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:820px;}
-  .b-card{
-    width:150px;background:var(--panel);border:2px solid var(--line);border-radius:16px;
-    padding:10px;text-align:center;transition:transform .12s, box-shadow .12s;
-    box-shadow:0 4px 12px rgba(0,0,0,.1);
+  .leader-entry{
+    display:flex;align-items:center;gap:8px;padding:3px 8px 3px 3px;
+    background:linear-gradient(135deg,#fff8e0,#fce7a8);border:calc(var(--l-topbar_border_width) + 0.5px) solid var(--gold);
+    border-radius:999px;cursor:pointer;transition:transform .1s;box-shadow:0 2px 6px rgba(232,184,78,.35);
+    transform:scale(var(--l-leader_entry_scale));transform-origin:left center;
   }
-  .b-card:hover{transform:translateY(-4px);box-shadow:0 8px 18px rgba(0,0,0,.16);border-color:var(--gold);}
-  .b-card img{width:100%;height:110px;object-fit:cover;border-radius:10px;margin-bottom:8px;}
-  .b-card .b-name{font-weight:700;font-size:15px;color:var(--qing);}
-  .b-card .b-sub{font-size:12px;color:#6a7a86;margin-top:3px;}
+  .leader-entry:hover{transform:translateY(-1px) scale(var(--l-leader_entry_scale));}
+  .leader-entry img.l-avatar{width:var(--l-leader_avatar_size);height:var(--l-leader_avatar_size);border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 0 0 2px var(--gold);}
+  .leader-entry .l-meta{line-height:1.2;}
+  .leader-entry .l-name{font-weight:700;font-size:var(--l-leader_name_size);color:#8a6310;display:flex;align-items:center;gap:4px;}
+  .leader-entry .l-badge{font-size:calc(var(--l-leader_name_size) - 4px);background:var(--gold);color:#fff;padding:1px 4px;border-radius:999px;}
+  .leader-entry .l-lv{font-size:var(--l-leader_lv_size);color:#8a6310;opacity:.85;}
+
+  .sect-name{font-weight:700;font-size:var(--l-sect_name_size);color:var(--qing);margin-left:4px;display:flex;align-items:center;gap:6px;}
+  .sect-level{font-size:var(--l-sect_badge_fs);background:var(--qing);color:#fff;padding:var(--l-sect_badge_pad);border-radius:999px;}
+  .spacer{flex:1;}
+  .res{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:var(--l-res_pill_pad);font-weight:600;font-size:var(--l-res_pill_fs);}
+  .res img{width:var(--l-res_icon_size);height:var(--l-res_icon_size);}
+
+  /* 场景：给建筑卡片绝对定位；背景图作为整张画布 */
+  #scene{flex:1;position:relative;overflow:hidden;padding:var(--l-scene_padding);min-height:var(--l-scene_min_h);}
+  .buildings{position:absolute;inset:var(--l-scene_padding);}
+  /* 建筑卡片：两种模式：positional（绝对定位对齐背景图，推荐） / flex（老模式居中平铺） */
+  .buildings.mode-flex{position:static;display:flex;gap:var(--l-building_gap_px) px;flex-wrap:wrap;justify-content:center;align-items:center;}
+  .buildings.mode-flex .b-card{position:static;transform:none;width:180px;height:auto;}
+  .b-card{
+    position:absolute;
+    padding:var(--l-building_card_pad);
+    background:var(--l-building_card_bg);
+    border:var(--l-building_card_border);
+    border-radius:var(--l-building_card_radius);
+    box-shadow:var(--l-building_card_shadow);
+    transition:transform .12s, box-shadow .12s, filter .12s;
+    overflow:hidden;
+    display:flex;flex-direction:column;align-items:stretch;
+    cursor:pointer;
+    backdrop-filter: blur(2px);
+  }
+  .b-card:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(0,0,0,.16);border-color:var(--gold);}
+  .b-card img.b-img{
+    width:100%;flex:0 0 var(--l-building_img_height);object-fit:cover;border-radius:var(--l-building_img_radius);
+    background:linear-gradient(135deg,#e8f0ec,#cfe8e1);
+    min-height:0;
+  }
+  .b-card .b-label{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;padding-top:6px;gap:2px;min-height:0;text-align:center;}
+  .b-card .b-name{font-weight:700;font-size:var(--l-building_name_fs);color:var(--qing);line-height:1.25;}
+  .b-card .b-sub{font-size:var(--l-building_sub_fs);color:#6a7a86;line-height:1.2;}
+  /* labelPosition top/bottom/left/right：把标签面板浮动到对应方向，可和背景图融合 */
+  .b-card.lbl-top{flex-direction:column-reverse;}
+  .b-card.lbl-top .b-label{padding:0 0 6px;}
+  .b-card.lbl-top img.b-img{flex:0 0 var(--l-building_img_height);}
+  .b-card.lbl-left{flex-direction:row-reverse;align-items:center;}
+  .b-card.lbl-left img.b-img{flex:1 1 var(--l-building_img_height);height:100%;max-width:64%;}
+  .b-card.lbl-left .b-label{padding:0 6px 0 0;align-items:flex-end;flex:0 0 36%;text-align:right;}
+  .b-card.lbl-right{flex-direction:row;align-items:center;}
+  .b-card.lbl-right img.b-img{flex:1 1 var(--l-building_img_height);height:100%;max-width:64%;}
+  .b-card.lbl-right .b-label{padding:0 0 0 6px;align-items:flex-start;flex:0 0 36%;text-align:left;}
 
   #bottombar{
-    display:flex;background:var(--panel);border-top:2px solid var(--gold);padding:8px;z-index:5;
+    display:flex;align-items:stretch;gap:var(--l-bottombar_gap);
+    background:var(--panel);
+    border-top:var(--l-bottombar_border_w) solid var(--gold);
+    padding:var(--l-bottombar_padding);
+    z-index:5;
   }
-  .nav-btn{flex:1;padding:12px;font-size:14px;color:var(--ink);background:transparent;border-radius:10px;margin:0 4px;transition:background .12s;}
+  .nav-btn{flex:1;padding:var(--l-bottombar_btn_pad);font-size:var(--l-bottombar_btn_fs);color:var(--ink);background:transparent;border-radius:var(--l-bottombar_btn_radius);margin:var(--l-bottombar_btn_margin);transition:background .12s;min-height:0;line-height:1.2;}
   .nav-btn:hover{background:rgba(232,184,78,.18);}
   .nav-btn.active{background:var(--qing);color:#fff;font-weight:700;}
 
@@ -77,18 +133,18 @@
   #overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10;align-items:center;justify-content:center;}
   #overlay.show{display:flex;}
   .modal{
-    width:min(440px,92vw);max-height:86vh;overflow:auto;background:var(--cloud);
-    border:2px solid var(--gold);border-radius:18px;padding:18px;
+    width:min(var(--l-modal_max_w),92vw);max-height:86vh;overflow:auto;background:var(--cloud);
+    border:2px solid var(--gold);border-radius:var(--l-modal_radius);padding:var(--l-modal_padding);
     box-shadow:0 10px 30px rgba(0,0,0,.25);animation:pop .18s ease;
   }
   @keyframes pop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
-  .modal h2{font-size:18px;color:var(--qing);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .modal h2{font-size:var(--l-modal_title_fs);color:var(--qing);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
   .modal .close{font-size:22px;color:#9aa;background:none;line-height:1;padding:0 4px;}
-  .modal .m-sub{font-size:12px;color:#6a7a86;margin-bottom:12px;}
-  .info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:14px;gap:10px;flex-wrap:wrap;}
+  .modal .m-sub{font-size:calc(var(--l-info_row_fs) - 1px);color:#6a7a86;margin-bottom:12px;}
+  .info-row{display:flex;justify-content:space-between;padding:var(--l-info_row_pad);border-bottom:1px dashed var(--line);font-size:var(--l-info_row_fs);gap:10px;flex-wrap:wrap;}
   .info-row span:last-child{font-weight:600;text-align:right;}
   .btn{
-    display:inline-block;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;
+    display:inline-block;padding:var(--l-btn_pad);border-radius:var(--l-btn_radius);font-size:var(--l-btn_fs);font-weight:600;
     background:var(--gold);color:#fff;transition:filter .12s,transform .1s;
   }
   .btn:hover{filter:brightness(1.06);}
@@ -102,7 +158,7 @@
   /* 掌门详情：大头像卡 */
   .leader-banner{text-align:center;padding:4px 0 10px;border-bottom:1px dashed var(--line);margin-bottom:10px;}
   .leader-banner img{width:110px;height:110px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 0 0 3px var(--gold);}
-  .leader-banner .r-name{font-size:20px;font-weight:700;color:var(--qing);margin-top:8px;display:flex;justify-content:center;align-items:center;gap:6px;}
+  .leader-banner .r-name{font-size:calc(var(--l-modal_title_fs) + 2px);font-weight:700;color:var(--qing);margin-top:8px;display:flex;justify-content:center;align-items:center;gap:6px;}
   .tag-gold{font-size:11px;background:var(--gold);color:#fff;padding:2px 8px;border-radius:999px;font-weight:700;}
   .leader-banner .r-sub{font-size:12px;color:#6a7a86;}
   .expbar{height:8px;border-radius:999px;background:#e1e7e9;overflow:hidden;margin:6px 0 2px;}
@@ -131,7 +187,7 @@
   .recruit-result .r-name{font-size:18px;font-weight:700;color:var(--qing);margin:8px 0 2px;}
 
   input.txt{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;}
-  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(58,74,90,.92);color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;}
+  .toast{position:fixed;bottom:var(--l-toast_bottom);left:50%;transform:translateX(-50%);background:rgba(58,74,90,.92);color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;}
   .toast.show{opacity:1;}
   .cfg-bar{font-size:11px;color:#8a9a9a;padding:2px 8px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);background:var(--panel);}
   .cfg-bar code{background:#eef3f0;border-radius:4px;padding:0 4px;color:#455;}
@@ -414,10 +470,42 @@ function openSettings(){
       <span class="muted">${uiT.resetSaveHint || ""}</span>
     </div>
     <div class="card-block">
-      <h3>🧩 调试信息</h3>
+      <h3>🧩 调试信息 & UI 微调</h3>
       <div class="info-row"><span>存档 Key</span><span><code>${storageKey}</code></span></div>
       <div class="info-row"><span>配置来源</span><span>${loadDiagnostics?.usedFallback?'fallback 内嵌默认值':'在线 JSON 成功加载'}</span></div>
       <div class="info-row"><span>配置 warnings</span><span>${(loadDiagnostics?.warnings?.length||0)} 条（F12 控制台查看）</span></div>
+      <div class="info-row"><span>建筑布局模式</span><span>${currentBuildingMode()==="flex"?'老模式：居中平铺（flex）':'新模式：按 buildings.json 绝对定位（推荐）'}</span></div>
+      <div class="muted">💡 建筑位置、大小、标签方位、顶栏/底栏/弹窗尺寸：</div>
+      <div class="muted">① 改 <code>assets/config/ui.json → layoutTokens.*</code> 控制全局尺寸（bottombar 更窄/建筑更小都在这里）</div>
+      <div class="muted">② 改 <code>assets/config/buildings.json → buildingMeta.{key}.position</code> 把每栋房子放到背景图对应的位置（大殿左上、矿场靠山、招募堂门口等）。</div>
+      <div class="muted">③ 保存 → 刷新页面即可看到新位置。</div>
+      <div class="btn-row" style="margin-bottom:2px;">
+        <button class="btn qing" onclick="openBuildingLayoutTips()">🎯 看当前 3 栋建筑的坐标模板（复制粘到 buildings.json 即可改）</button>
+      </div>
+    </div>
+  `);
+}
+function openBuildingLayoutTips(){
+  const lines = ["// 📝 复制下面这一段到 assets/config/buildings.json 的 buildingMeta 里即可调整坐标（百分比 0-100）：", "{"];
+  for(const key of GameConfig.buildings.order){
+    const b = GameConfig.buildings.buildingMeta[key];
+    const p = b.position || {};
+    lines.push(`  "${key}": {`);
+    lines.push(`    "position": { "x": ${p.x||50}, "y": ${p.y||50}, "w": ${p.w||18}, "h": ${p.h||30} },`);
+    lines.push(`    "labelPosition": "${b.labelPosition||"bottom"}",   // 标签方位：bottom / top / left / right`);
+    lines.push(`    "zIndex": ${b.zIndex||40},`);
+    lines.push(`    "cardStyle": {}`);
+    lines.push(`  },`);
+  }
+  lines.push("}");
+  const text = lines.join("\n");
+  openModal(`
+    <h2>建筑位置快速调参模板<button class="close" onclick="closeModal()">×</button></h2>
+    <div class="m-sub">粘贴到 assets/config/buildings.json → 保存 → 刷新，就能把每栋房子放到场景背景图对应的位置。x/y=卡片中心点百分比，w/h=卡片宽高百分比，相对于整个场景区 #scene。</div>
+    <textarea id="layoutTplTxt" readonly style="width:100%;min-height:260px;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f7faf8;color:#345;">${text.replace(/"/g,'&quot;')}</textarea>
+    <button class="btn full" onclick="(function(){ const el=document.getElementById('layoutTplTxt'); if(!el) return; el.select(); document.execCommand('copy'); toast('已复制到剪贴板，去粘贴到 buildings.json 吧'); })()">📋 复制整块到剪贴板</button>
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn wood" onclick="closeModal();openSettings();">← 回设置</button>
     </div>
   `);
 }
@@ -582,10 +670,33 @@ function renderTopbarAndResources(){
   document.getElementById("iconLingshi").src = GameConfig.ui.images.iconLingshi;
   document.body.style.background = `#cfe8e1 url("${GameConfig.ui.images.sceneBg}") center/cover no-repeat fixed`;
 }
+function currentBuildingMode(){
+  const tokens = GameConfig?.ui?.layoutTokens;
+  if(!tokens) return "positional";
+  const m = String(tokens.building_mode || "positional").toLowerCase();
+  return (m==="flex" || m==="positional") ? m : "positional";
+}
+function applyCardStyle(el, styleObj){
+  if(!styleObj || typeof styleObj!=="object") return;
+  for(const [k,v] of Object.entries(styleObj)){
+    if(k==="_comment" || v===null || v===undefined) continue;
+    const cssKey = String(k).startsWith("--") ? k : k.replace(/[A-Z]/g, s=>"-"+s.toLowerCase());
+    if(typeof v === "number" && !["zIndex","order","flexGrow","flexShrink"].includes(k)){
+      el.style.setProperty(cssKey, v + "px");
+    }else{
+      el.style.setProperty(cssKey, String(v));
+    }
+  }
+}
 function renderBuildings(){
   const wrap = document.getElementById("buildings");
   if(!wrap) return;
+  const mode = currentBuildingMode();
+  wrap.className = "buildings " + (mode==="flex" ? "mode-flex" : "mode-positional");
   wrap.innerHTML = "";
+  const tokens = GameConfig.ui.layoutTokens;
+  const defaultW = tokens.building_default_w || "18%";
+  const defaultH = tokens.building_default_h || "30%";
   for(const key of GameConfig.buildings.order){
     const b = state.buildings[key];
     if(!b) continue;
@@ -601,8 +712,23 @@ function renderBuildings(){
       sub += left>0 ? " · 冷却 "+left+"s" : " · 可招募";
     }
     const el = document.createElement("div");
-    el.className="b-card";
-    el.innerHTML = `<img src="${m.img}"><div class="b-name">${m.name}</div><div class="b-sub">${sub}</div>`;
+    const pos = m.position || {x:50,y:50,w:18,h:30};
+    const lbl = (m.labelPosition || "bottom").toLowerCase();
+    el.className = "b-card lbl-" + (["top","bottom","left","right"].includes(lbl)?lbl:"bottom");
+    // 位置：x/y 是卡片中心的场景百分比，w/h 是卡片相对场景的尺寸百分比
+    if(mode === "positional"){
+      const w = (pos.w && pos.w>0) ? pos.w+"%" : defaultW;
+      const h = (pos.h && pos.h>0) ? pos.h+"%" : defaultH;
+      const x = ((pos.x!=null && !isNaN(+pos.x)) ? +pos.x : 50);
+      const y = ((pos.y!=null && !isNaN(+pos.y)) ? +pos.y : 50);
+      el.style.left   = `calc(${x}% - ${w}/2)`;
+      el.style.top    = `calc(${y}% - ${h}/2)`;
+      el.style.width  = w;
+      el.style.height = h;
+      el.style.zIndex = Number.isFinite(+m.zIndex) ? (+m.zIndex) : 40;
+    }
+    el.innerHTML = `<img class="b-img" src="${m.img}" alt="${m.name}"><div class="b-label"><div class="b-name">${m.name}</div><div class="b-sub">${sub}</div></div>`;
+    applyCardStyle(el, m.cardStyle);
     el.onclick = ()=>openBuilding(key);
     wrap.appendChild(el);
   }
@@ -896,6 +1022,16 @@ async function bootstrap(){
     H = window.GameConfigLoader.helpers(GameConfig);
     // 主题色注入（覆盖 :root CSS 变量）
     window.GameConfigLoader.injectThemeColors(GameConfig.ui.themeColors);
+    // UI 尺寸 tokens 注入（顶栏/底栏/建筑/弹窗尺寸 → --l-* CSS 变量）
+    window.GameConfigLoader.injectLayoutTokens(GameConfig.ui.layoutTokens);
+    // 根据 scene_bg_fixed 决定背景是否 fixed 到 body（默认 true），false 时把整个图贴到 #scene 节点对齐建筑 position
+    if(GameConfig.ui.layoutTokens.scene_bg_fixed === false){
+      document.body.style.background = "#cfe8e1";
+      const scene = document.getElementById("scene");
+      if(scene){
+        scene.style.background = `#cfe8e1 url("${GameConfig.ui.images.sceneBg}") center/cover no-repeat`;
+      }
+    }
     // 渲染前挂好上传句柄
     setupAvatarHandler();
     setupSaveImportHandler();

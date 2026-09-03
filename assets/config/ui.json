@@ -1,6 +1,6 @@
 {
-  "_version": "1.0",
-  "_desc": "UI 字符串与图片路径配置：想改主题色、资源图标、背景图、按钮文案、导航标签在此表改。颜色值同时会同步写入 CSS 变量（见 config-loader 注入 --qing/--wood/--gold）。",
+  "_version": "1.1",
+  "_desc": "UI 配置：主题色、图片路径、按钮文案、宗门默认名、UI 尺寸 tokens（v1.4 UI 优化新增）。颜色值同时会同步写入 CSS 变量 --qing/--wood/--gold；layoutTokens 写入 --l-* 系列变量，控制顶栏/底栏/建筑卡片/弹窗等所有尺寸。",
 
   "sect": {
     "defaultName": "无名宗门"
@@ -21,6 +21,61 @@
     "gold":   "#E8B84E",
     "ink":    "#3A4A5A",
     "cloud":  "#F4F7F4"
+  },
+
+  "layoutTokens": {
+    "_comment": "所有值使用 CSS 长度，支持 px / vh / % 等。孩子觉得建筑/菜单太大/太小，改这里即可，无需改 CSS。",
+    "topbar_padding":       "6px 10px",
+    "topbar_gap":           "10px",
+    "topbar_border_width":  "1.5px",
+    "leader_entry_scale":   "1",
+    "leader_avatar_size":   "32px",
+    "leader_name_size":    "13px",
+    "leader_lv_size":      "10px",
+    "sect_name_size":      "15px",
+    "sect_badge_pad":      "1px 6px",
+    "sect_badge_fs":       "11px",
+    "res_pill_pad":        "3px 8px",
+    "res_pill_fs":         "13px",
+    "res_icon_size":       "18px",
+
+    "bottombar_padding":   "4px 6px",
+    "bottombar_border_w":  "1.5px",
+    "bottombar_btn_pad":   "7px 4px",
+    "bottombar_btn_fs":    "12px",
+    "bottombar_btn_radius":"8px",
+    "bottombar_btn_margin":"0 3px",
+    "bottombar_gap":       "2px",
+
+    "scene_padding":       "12px 16px",
+    "scene_min_h":         "0",
+    "scene_bg_fixed":      true,
+
+    "building_card_pad":   "6px",
+    "building_card_radius":"12px",
+    "building_card_border":"1.5px solid var(--line)",
+    "building_card_bg":    "rgba(244,247,244,.90)",
+    "building_card_shadow":"0 4px 10px rgba(0,0,0,.10)",
+    "building_img_height": "58%",
+    "building_img_radius": "8px",
+    "building_name_fs":    "13px",
+    "building_sub_fs":     "11px",
+    "building_gap_px":     "8",
+    "building_mode":       "positional",
+    "building_default_w":  "18%",
+    "building_default_h":  "30%",
+
+    "modal_max_w":         "440px",
+    "modal_padding":       "14px 16px",
+    "modal_radius":        "14px",
+    "modal_title_fs":      "16px",
+    "btn_pad":             "8px 14px",
+    "btn_radius":          "8px",
+    "btn_fs":              "13px",
+    "info_row_pad":        "6px 0",
+    "info_row_fs":         "13px",
+
+    "toast_bottom":        "72px"
   },
 
   "uiText": {
