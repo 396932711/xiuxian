@@ -100,23 +100,14 @@
   }
   .b-card:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 8px 18px rgba(0,0,0,.16);border-color:var(--gold);}
   .b-card img.b-img{
-    width:100%;flex:0 0 var(--l-building_img_height);object-fit:cover;border-radius:var(--l-building_img_radius);
-    background:linear-gradient(135deg,#e8f0ec,#cfe8e1);
+    width:100%;height:100%;flex:1 1 100%;object-fit:cover;border-radius:var(--l-building_img_radius);
     min-height:0;
   }
-  .b-card .b-label{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;padding-top:6px;gap:2px;min-height:0;text-align:center;}
-  .b-card .b-name{font-weight:700;font-size:var(--l-building_name_fs);color:var(--qing);line-height:1.25;}
-  .b-card .b-sub{font-size:var(--l-building_sub_fs);color:#6a7a86;line-height:1.2;}
-  /* labelPosition top/bottom/left/right：把标签面板浮动到对应方向，可和背景图融合 */
-  .b-card.lbl-top{flex-direction:column-reverse;}
-  .b-card.lbl-top .b-label{padding:0 0 6px;}
-  .b-card.lbl-top img.b-img{flex:0 0 var(--l-building_img_height);}
-  .b-card.lbl-left{flex-direction:row-reverse;align-items:center;}
-  .b-card.lbl-left img.b-img{flex:1 1 var(--l-building_img_height);height:100%;max-width:64%;}
-  .b-card.lbl-left .b-label{padding:0 6px 0 0;align-items:flex-end;flex:0 0 36%;text-align:right;}
-  .b-card.lbl-right{flex-direction:row;align-items:center;}
-  .b-card.lbl-right img.b-img{flex:1 1 var(--l-building_img_height);height:100%;max-width:64%;}
-  .b-card.lbl-right .b-label{padding:0 0 0 6px;align-items:flex-start;flex:0 0 36%;text-align:left;}
+  .b-card .b-label{display:none;}
+  .b-card .b-name{display:none;}
+  .b-card .b-sub{display:none;}
+  /* labelPosition 相关样式保留但 label 已隐藏，不影响布局 */
+  .b-card.lbl-top,.b-card.lbl-left,.b-card.lbl-right{flex-direction:column;}
 
   #bottombar{
     display:flex;align-items:stretch;gap:var(--l-bottombar_gap);
@@ -130,7 +121,7 @@
   .nav-btn.active{background:var(--qing);color:#fff;font-weight:700;}
 
   /* ===== 弹窗 ===== */
-  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10;align-items:center;justify-content:center;}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:1000;align-items:center;justify-content:center;}
   #overlay.show{display:flex;}
   .modal{
     width:min(var(--l-modal_max_w),92vw);max-height:86vh;overflow:auto;background:var(--cloud);
@@ -727,7 +718,7 @@ function renderBuildings(){
       el.style.height = h;
       el.style.zIndex = Number.isFinite(+m.zIndex) ? (+m.zIndex) : 40;
     }
-    el.innerHTML = `<img class="b-img" src="${m.img}" alt="${m.name}"><div class="b-label"><div class="b-name">${m.name}</div><div class="b-sub">${sub}</div></div>`;
+    el.innerHTML = `<img class="b-img" src="${m.img}" alt="${m.name}" title="${m.name} · ${sub}">`;
     applyCardStyle(el, m.cardStyle);
     el.onclick = ()=>openBuilding(key);
     wrap.appendChild(el);
