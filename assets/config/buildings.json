@@ -2,7 +2,7 @@
   "_version": "1.1",
   "_desc": "建筑定义（v1.4 UI 优化新增位置/尺寸字段）：名称、图片、描述、升级依赖、工位/上限公式、以及在场景背景图中的摆放位置。新增建筑时在此表新增 key，同时在 buildingMeta 与 UI 流程补充逻辑（代码会按 key 自动加载）。position 四值全部用『场景区』#scene 的宽高百分比，这样换屏幕尺寸依然对齐背景（比如大殿放在左上角远景位，矿场放中部靠山位，招募堂放右下入口位）。",
 
-  "order": ["dian", "kuang", "zhaomu"],
+  "order": ["dian", "kuang", "zhaomu", "yaotian", "danfang", "cangjing"],
 
   "buildingMeta": {
     "dian": {
@@ -45,6 +45,35 @@
       "labelPosition": "left",
       "zIndex": 40,
       "cardStyle": {}
+    },
+    "yaotian": {
+      "id":"yaotian","name":"药田","img":"assets/img/building_yaotian.jpg",
+      "desc":"分配弟子种植灵药",
+      "workerType":"farming",
+      "slotCap":{ "type":"linear","base":1,"perLevel":1 },
+      "produces":["lingyao"],
+      "position":{ "x":38,"y":68,"w":16,"h":26 },
+      "labelPosition":"bottom","zIndex":35,"cardStyle":{}
+    },
+    "danfang": {
+      "id":"danfang","name":"丹房","img":"assets/img/building_danfang.jpg",
+      "desc":"消耗灵药炼制丹药",
+      "workerType":"alchemy",
+      "slotCap":{ "type":"linear","base":1,"perLevel":1 },
+      "produces":["danyao"],
+      "consumes":["lingyao"],
+      "recipePillPerBatch":1,
+      "recipeLingyaoCostPerBatch":3,
+      "position":{ "x":62,"y":68,"w":16,"h":26 },
+      "labelPosition":"bottom","zIndex":35,"cardStyle":{}
+    },
+    "cangjing": {
+      "id":"cangjing","name":"藏经阁","img":"assets/img/building_cangjing.jpg",
+      "desc":"阅读典籍，提升全员修炼速度",
+      "workerType":null,
+      "expBoostPerLevel":0.05,
+      "position":{ "x":50,"y":58,"w":14,"h":22 },
+      "labelPosition":"bottom","zIndex":45,"cardStyle":{}
     }
   }
 }

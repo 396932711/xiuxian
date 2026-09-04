@@ -104,6 +104,27 @@
     "resetDone": "宗门已重建，小掌门请继续加油 ✨",
     "fileNameHint": "导出文件名（含掌门名、日期）",
     "btnChooseFile": "选择存档文件…",
-    "settingsTitle": "宗门设置"
+    "settingsTitle": "宗门设置",
+    "yaotianName":"药田","yaotianDesc":"种植灵药，弟子分配后自动产出",
+    "danfangName":"丹房","danfangDesc":"消耗灵药炼制丹药",
+    "cangjingName":"藏经阁","cangjingDesc":"阅读典籍提升修炼速度",
+    "assignFarmingBtn":"▶ 分配种药","assignAlchemyBtn":"▶ 分配炼丹","assignMiningBtn":"▶ 分配采集","recallBtn":"◀ 召回",
+    "farmingStatus":"种药中","alchemyStatus":"炼丹中","miningStatus":"采集中","idleStatus":"空闲",
+    "lingyaoStock":"灵药库存：","danyaoStock":"丹药库存：",
+    "produceFarming":"灵药产量：","produceMining":"灵石产量：","produceAlchemy":"丹药产量：",
+    "workSlotLine":"工位：{X}/{Y} 人在岗",
+    "expBoostHint":"当前加成：+{PCT}% 全员修炼速度（藏经阁 Lv.{LV}）",
+    "breakthroughTitle":"突破筑基","breakthroughNeed":"消耗 1 颗丹药（基础成功率 80%）","breakthroughExtraLabel":"额外吃丹药加成",
+    "breakthroughRate":"突破成功率：{RATE}%（基础 80% + 加成 {EXTRA}%）",
+    "breakthroughConfirm":"确认突破","breakthroughDanyaoTotal":"总消耗丹药：{N} 颗",
+    "breakthroughSuccess":"🎉 突破成功，进入筑基境！",
+    "breakthroughFail":"💧 突破失败，境界小退一步，再努力修炼吧！",
+    "breakthroughNotReady":"需要 {N} 颗丹药才能突破",
+    "questsTitle":"今日任务","questsEmptyHint":"今日任务还未生成，请刷新重试",
+    "questsRewardBtn":"🎁 领取",
+    "questsProgressLabel":"进度：{P}/{N}",
+    "questsClaimed":"✅ 已领","questsDoing":"⏳ 进行中",
+    "questsContributionBadge":"宗门贡献：",
+    "newStageUnlockedNotice":"大殿升到 Lv.{LV}，解锁【药田/丹房/藏经阁】与【灵药/丹药】新资源！"
   }
 }

@@ -15,6 +15,7 @@
 - 🛡️ **健壮容错**：即使本地双击 `file://` 打开、或 JSON 字段缺失/类型错，也能自动回退到内嵌默认值，孩子视角**永远不会黑屏报错**
 - 📦 **存档导入/导出/重置（v1.3.1 新增）**：底部导航「设置」一键导出 `.json` 备份 / 从备份文件导入跨机器接着玩 / 带「输入确认词」二次保护的重开新档
 - 🎨 **UI 精修与布局坐标化（v1.4 新增）**：底部导航/顶栏/按钮/弹窗全部尺寸可调（ui.json.layoutTokens）；**建筑不再居中堆大卡片**，每栋建筑支持 `position{x%,y%,w%,h%} / labelPosition / zIndex / cardStyle` 四项，可把大殿放到背景图山上、矿场放山脚、招募堂放门口，完全贴合你 AI 画的场景图
+- **🌿 v1.1 阶段2 资源链（已实装）**：新增「药田种灵药 → 丹房炼丹 → 弟子练气满级吃丹药突破筑基」三级资源闭环；藏经阁全员修炼加成 + 每日 3 条日常任务引导（大殿 Lv.2 解锁阶段 2，5~10 分钟内让孩子体验到"第一个弟子筑基"的成就感）
 - 🧱 **模块化迭代**：每阶段一个可玩闭环（阶段1 已交付），后续叠加药田·丹房·筑基、战斗·秘境·金丹、宗门高阶玩法
 
 ---
@@ -105,6 +106,11 @@ python3 -m http.server 8000
 | 担心孩子误清空进度 | 不碰配置 或 `values.json` | 重置前会强制输入「重置」二字；想更严格改 `saveFile.confirmResetWord = "和爸爸一起重建宗门"` |
 | **底部导航 / 按钮 / 弹窗太大太占地方（想做"古风 App 精致菜单"感）** | `ui.json` | 调 `layoutTokens.bottombar_btn_pad / btn_fs / topbar_padding / leader_avatar_size / modal_max_w / btn_pad / btn_fs` 一整套紧凑档（见《配置文件总览.md §五对照表》）|
 | **AI 画了一张新场景图，想把大殿/矿场/招募堂放到对应位置** | `buildings.json` + `ui.json` | ① 新图替换 `images.sceneBg` / ② `ui.layoutTokens.scene_bg_fixed = false`（让图只在 #scene 铺） / ③ 每栋建筑改 `position{x,y,w,h}` 百分比坐标；改 `labelPosition` 避免文字压到画面 |
+| 想让药田灵药产量翻倍（孩子种半天没收获） | values.json | `produce.lingyaoPerMul = 2`（默认 1） |
+| 想让炼丹消耗降低，孩子容易出第一批丹药 | values.json + buildings.json | 双保险：`alchemy.recipeLingyaoCostPerBatch = 2`（默认 3） + `danfang.recipeLingyaoCostPerBatch` 改成 2 |
+| 想让突破 100% 成功（孩子怕失败） | values.json + realms.json | 安全两档：① `breakthrough.pillBoostAddMax = 2` + `pillBoostPerAdd = 0.1`（多吃 2 颗丹药就 80%+20% =100% 满） 或 ② 直接把 `realms.lianqi.breakthrough.baseSuccessRate = 1` |
+| 想让藏经阁加成更强（弟子升级快） | values.json + buildings.json | `cangjing.expBoostPerLevel = 0.10`（每级 +10%） |
+| 想把日常任务加一条"今天升 3 级弟子"的新任务 | values.json | 在 `quests.dailyPool` 数组追加一条对象：`{ "id":"q_levelup_disciple","type":"upgrade_building","need":3,"reward":{"lingshi":300,"danyao":2} }`（type 可以复用 existing 的 upgrade_building，或者我在下面给了新的类型名，代码端已做容错）。推荐用现有 collect_resource/upgrade_building/exp_sum/recruit_count 四种 type，避免代码未支持的 type 导致任务进度不算。 |
 
 **操作步骤**：用记事本/VSC 打开对应 JSON → 保存 → 刷新浏览器页面 → 立刻看到效果 ✨
 
@@ -129,7 +135,7 @@ python3 -m http.server 8000
 | **v1.3** | ✅ 已完成（在 v1.0 之上叠加） | **配置外置化工程改造**：6 份 JSON + ConfigLoader（加载/回退/校验/主题注入/公式 helpers）+ index.html 去写死 + 三份配套文档 |
 | **v1.3.1** | ✅ 已完成（在 v1.3 之上叠加） | **设置与存档管理**：底部导航「设置」→ 📦 导出 JSON / 📥 导入 JSON（跨机器迁移进度） / 🔄 二次确认重置；底部导航按钮名由 `ui.json.bottomNav` 动态驱动 |
 | **v1.4** | ✅ 已完成（在 v1.3.1 之上叠加） | **UI 精修与布局坐标化**：① 底部导航/顶栏/按钮/弹窗尺寸统一由 `ui.json.layoutTokens`（47 个 token）注入，一键"瘦身精致化"；② 建筑卡片从「居中 flex 平铺大卡片」改为**按 buildings.position 绝对定位贴到场景背景**（每栋 4 值坐标{x,y,w,h} + labelPosition 4 向浮动 + zIndex 层级 + cardStyle 单栋 CSS）；③ 设置页新增「🎯 建筑位置快速调参模板」复制按钮 |
-| v1.1 | 📅 待开发 | 阶段 2：灵药+药田、丹药+丹房、筑基境界（仅丹药突破）、藏经阁、日常任务 |
+| v1.1 | ✅ 已完成（在 v1.4 之上叠加） | 阶段2 生产链拓展——灵药+药田种植、丹药+丹房炼丹、筑基境界突破（仅丹药路线，练气满吃丹药 80%+加吃 2 颗=100% 成功率）、藏经阁全员修炼经验加成（Lv.1 基准，Lv.2 起每级+5%）、日常任务系统（每日随机 3 条：采灵石/灵药、升建筑、修炼经验、招新弟子，领奖给丹药/灵药/贡献/灵石） |
 | v1.2 | 📅 待开发 | 阶段 3：金丹境、演武场/秘境、弟子天赋、突破石、装备雏形 |
 | v1.4 | 📅 待规划（说明：v1.4 编号已被 UI 精修横向工程占用，高阶玩法顺延到 v1.5） | 阶段 4：阵法阁/灵兽园/任务大厅、宗门科技、师徒系统、宗门声望 |
 

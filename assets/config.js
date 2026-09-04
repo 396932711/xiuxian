@@ -26,9 +26,22 @@
       offlineCapSeconds: 7200,
       storageKey: "zongmen_save_v1",
       saveFile: { exportNamePrefix: "宗门-存档", confirmResetWord: "重置" },
-      produce: { basePer10s: 1.5, perLevelMul: 0.1 },
+      produce: { basePer10s: 1.5, perLevelMul: 0.1, lingyaoPerMul: 1.0 },
       upgrade: { baseCost: 100, growthMul: 1.3 },
       exp: { baseNeed: 100, growthMul: 1.3 },
+      alchemy: { recipePillPerBatch: 1, recipeLingyaoCostPerBatch: 3 },
+      breakthrough: { pillBoostPerAdd: 0.1, pillBoostAddMax: 2, failBackLevelOffset: 1 },
+      cangjing:  { expBoostPerLevel: 0.05 },
+      quests: {
+        dailyPool: [
+          { id:"q_collect_ls",   type:"collect_resource", resource:"lingshi", need:300, reward:{danyao:1,contribution:10} },
+          { id:"q_collect_ly",   type:"collect_resource", resource:"lingyao",need:60,  reward:{danyao:1,contribution:10} },
+          { id:"q_upgrade_bld",  type:"upgrade_building", need:2, reward:{lingyao:20,contribution:15} },
+          { id:"q_train_exp",    type:"exp_sum",          need:500, reward:{lingshi:100,contribution:10} },
+          { id:"q_recruit_once", type:"recruit_count",    need:1, reward:{lingyao:15} }
+        ],
+        dailyCount: 3
+      },
       discipleCapFormula: { type: "linear", base: 2, perDianLevel: 1 },
       avatar: { compress: {
         rawFileMaxKB: 8192, dataUrlMaxKB: 256, maxSide: 512, fallbackSide: 256,
@@ -38,15 +51,22 @@
       recruit: { cost: 50, cdBaseSeconds: 30, cdGrowthPerLevel: 0.9, cdMinSeconds: 5 }
     },
     buildings: {
-      _version: "1.1",
-      order: ["dian", "kuang", "zhaomu"],
+      _version: "1.2",
+      order: ["dian", "kuang", "zhaomu", "yaotian", "danfang", "cangjing"],
       buildingMeta: {
         dian:   { id:"dian", name:"宗门大殿", img:"assets/img/building_dian.jpg",   desc:"宗门核心，决定弟子上限与建筑等级上限", isCore:true, capRules:{discipleCap:{type:"linear",base:2,perLevel:1}},
                    position:{x:50,y:28,w:24,h:38}, labelPosition:"bottom", zIndex:50, cardStyle:{boxShadow:"0 10px 24px rgba(0,0,0,.18), 0 0 0 3px rgba(232,184,78,.35)"} },
         kuang:  { id:"kuang", name:"灵矿场",   img:"assets/img/building_kuang.jpg",  desc:"分配掌门与弟子采集灵石", workerType:"mining", slotCap:{type:"linear",base:1,perLevel:1}, produces:["lingshi"],
                    position:{x:22,y:60,w:18,h:30}, labelPosition:"right",  zIndex:40, cardStyle:{} },
         zhaomu: { id:"zhaomu", name:"招募堂",   img:"assets/img/building_zhaomu.jpg", desc:"消耗灵石招募新弟子", workerType:null,
-                   position:{x:78,y:64,w:16,h:26}, labelPosition:"left",   zIndex:40, cardStyle:{} }
+                   position:{x:78,y:64,w:16,h:26}, labelPosition:"left",   zIndex:40, cardStyle:{} },
+        yaotian:{ id:"yaotian",name:"药田",    img:"assets/img/building_yaotian.jpg",desc:"分配弟子种植灵药", workerType:"farming", slotCap:{type:"linear",base:1,perLevel:1}, produces:["lingyao"],
+                   position:{x:38,y:68,w:16,h:26}, labelPosition:"bottom", zIndex:35, cardStyle:{} },
+        danfang:{ id:"danfang",name:"丹房",    img:"assets/img/building_danfang.jpg",desc:"消耗灵药炼制丹药", workerType:"alchemy", slotCap:{type:"linear",base:1,perLevel:1}, produces:["danyao"], consumes:["lingyao"],
+                   recipePillPerBatch:1, recipeLingyaoCostPerBatch:3,
+                   position:{x:62,y:68,w:16,h:26}, labelPosition:"bottom", zIndex:35, cardStyle:{} },
+        cangjing:{id:"cangjing",name:"藏经阁", img:"assets/img/building_cangjing.jpg",desc:"阅读典籍，提升全员修炼速度", workerType:null, expBoostPerLevel:0.05,
+                   position:{x:50,y:58,w:14,h:22}, labelPosition:"bottom", zIndex:45, cardStyle:{} }
       }
     },
     realms: {
@@ -124,7 +144,26 @@
         resetDone: "宗门已重建，小掌门请继续加油 ✨",
         fileNameHint: "导出文件名（含掌门名、日期）",
         btnChooseFile: "选择存档文件…",
-        settingsTitle: "宗门设置"
+        settingsTitle: "宗门设置",
+        yaotianName:"药田", yaotianDesc:"种植灵药，弟子分配后自动产出",
+        danfangName:"丹房", danfangDesc:"消耗灵药炼制丹药",
+        cangjingName:"藏经阁", cangjingDesc:"阅读典籍提升修炼速度",
+        assignFarmingBtn:"▶ 分配种药", assignAlchemyBtn:"▶ 分配炼丹", assignMiningBtn:"▶ 分配采集", recallBtn:"◀ 召回",
+        farmingStatus:"种药中", alchemyStatus:"炼丹中", miningStatus:"采集中", idleStatus:"空闲",
+        lingyaoStock:"灵药库存：", danyaoStock:"丹药库存：",
+        produceFarming:"灵药产量：", produceMining:"灵石产量：", produceAlchemy:"丹药产量：",
+        workSlotLine:"工位：{X}/{Y} 人在岗",
+        expBoostHint:"当前加成：+{PCT}% 全员修炼速度（藏经阁 Lv.{LV}）",
+        breakthroughTitle:"突破筑基", breakthroughNeed:"消耗 1 颗丹药（基础成功率 80%）", breakthroughExtraLabel:"额外吃丹药加成",
+        breakthroughRate:"突破成功率：{RATE}%（基础 80% + 加成 {EXTRA}%）",
+        breakthroughConfirm:"确认突破", breakthroughDanyaoTotal:"总消耗丹药：{N} 颗",
+        breakthroughSuccess:"🎉 突破成功，进入筑基境！",
+        breakthroughFail:"💧 突破失败，境界小退一步，再努力修炼吧！",
+        breakthroughNotReady:"需要 {N} 颗丹药才能突破",
+        questsTitle:"今日任务", questsEmptyHint:"今日任务还未生成，请刷新重试",
+        questsRewardBtn:"🎁 领取", questsProgressLabel:"进度：{P}/{N}",
+        questsClaimed:"✅ 已领", questsDoing:"⏳ 进行中", questsContributionBadge:"宗门贡献：",
+        newStageUnlockedNotice:"大殿升到 Lv.{LV}，解锁【药田/丹房/藏经阁】与【灵药/丹药】新资源！"
       }
     },
     resources: {
@@ -188,12 +227,34 @@
     V.produce = obj(V.produce, "values.produce");
     V.produce.basePer10s   = num(V.produce.basePer10s,   "values.produce.basePer10s",   DEFAULTS.values.produce.basePer10s);
     V.produce.perLevelMul = num(V.produce.perLevelMul,  "values.produce.perLevelMul",  DEFAULTS.values.produce.perLevelMul);
+    V.produce.lingyaoPerMul = num(V.produce.lingyaoPerMul, "values.produce.lingyaoPerMul", DEFAULTS.values.produce.lingyaoPerMul);
     V.upgrade = obj(V.upgrade, "values.upgrade");
     V.upgrade.baseCost   = num(V.upgrade.baseCost,   "values.upgrade.baseCost",   DEFAULTS.values.upgrade.baseCost);
     V.upgrade.growthMul  = num(V.upgrade.growthMul,  "values.upgrade.growthMul",  DEFAULTS.values.upgrade.growthMul);
     V.exp = obj(V.exp, "values.exp");
     V.exp.baseNeed     = num(V.exp.baseNeed,     "values.exp.baseNeed",     DEFAULTS.values.exp.baseNeed);
     V.exp.growthMul    = num(V.exp.growthMul,    "values.exp.growthMul",    DEFAULTS.values.exp.growthMul);
+    V.alchemy = obj(V.alchemy, "values.alchemy");
+    V.alchemy.recipePillPerBatch       = num(V.alchemy.recipePillPerBatch,       "values.alchemy.recipePillPerBatch",       DEFAULTS.values.alchemy.recipePillPerBatch);
+    V.alchemy.recipeLingyaoCostPerBatch= num(V.alchemy.recipeLingyaoCostPerBatch,"values.alchemy.recipeLingyaoCostPerBatch",DEFAULTS.values.alchemy.recipeLingyaoCostPerBatch);
+    V.breakthrough = obj(V.breakthrough, "values.breakthrough");
+    V.breakthrough.pillBoostPerAdd     = num(V.breakthrough.pillBoostPerAdd,     "values.breakthrough.pillBoostPerAdd",     DEFAULTS.values.breakthrough.pillBoostPerAdd);
+    V.breakthrough.pillBoostAddMax     = num(V.breakthrough.pillBoostAddMax,     "values.breakthrough.pillBoostAddMax",     DEFAULTS.values.breakthrough.pillBoostAddMax);
+    V.breakthrough.failBackLevelOffset = num(V.breakthrough.failBackLevelOffset, "values.breakthrough.failBackLevelOffset", DEFAULTS.values.breakthrough.failBackLevelOffset);
+    V.cangjing = obj(V.cangjing, "values.cangjing");
+    V.cangjing.expBoostPerLevel = num(V.cangjing.expBoostPerLevel, "values.cangjing.expBoostPerLevel", DEFAULTS.values.cangjing.expBoostPerLevel);
+    V.quests = obj(V.quests, "values.quests");
+    if(!V.quests.dailyPool || !Array.isArray(V.quests.dailyPool) || V.quests.dailyPool.length===0){
+      warnings.push("values.quests.dailyPool 必须是非空数组，已回退默认值");
+      V.quests.dailyPool = JSON.parse(JSON.stringify(DEFAULTS.values.quests.dailyPool));
+    }
+    V.quests.dailyPool.forEach((q, i)=>{
+      if(!q || typeof q!=="object") return;
+      q.need = num(q.need, "values.quests.dailyPool["+i+"].need", DEFAULTS.values.quests.dailyPool[i]?.need || 1);
+      q.type = str(q.type, "values.quests.dailyPool["+i+"].type", "collect_resource");
+      if(!q.reward || typeof q.reward!=="object") q.reward = {};
+    });
+    V.quests.dailyCount = num(V.quests.dailyCount, "values.quests.dailyCount", DEFAULTS.values.quests.dailyCount);
     V.avatar = obj(V.avatar, "values.avatar"); V.avatar.compress = obj(V.avatar&&V.avatar.compress, "values.avatar.compress");
     const ac = V.avatar.compress;
     ac.rawFileMaxKB   = num(ac.rawFileMaxKB,   "values.avatar.compress.rawFileMaxKB",   DEFAULTS.values.avatar.compress.rawFileMaxKB);
@@ -252,6 +313,28 @@
       b.name = str(b.name, "buildings.buildingMeta."+key+".name", DEFAULTS.buildings.buildingMeta[key]?.name || key);
       b.img = str(b.img,   "buildings.buildingMeta."+key+".img",  DEFAULTS.buildings.buildingMeta[key]?.img  || "");
       b.desc= str(b.desc,  "buildings.buildingMeta."+key+".desc", DEFAULTS.buildings.buildingMeta[key]?.desc || "");
+      // slotCap 可选（非生产型建筑比如藏经阁没有）
+      if(b.slotCap){
+        const sc = b.slotCap = obj(b.slotCap, "buildings.buildingMeta."+key+".slotCap");
+        const defSC = DEFAULTS.buildings.buildingMeta[key]?.slotCap || {type:"linear",base:1,perLevel:1};
+        sc.type    = str(sc.type,    "buildings.buildingMeta."+key+".slotCap.type",    defSC.type);
+        sc.base    = num(sc.base,    "buildings.buildingMeta."+key+".slotCap.base",    defSC.base);
+        sc.perLevel= num(sc.perLevel,"buildings.buildingMeta."+key+".slotCap.perLevel",defSC.perLevel);
+      }
+      if(b.workerType!==null && b.workerType!==undefined){
+        b.workerType = str(b.workerType, "buildings.buildingMeta."+key+".workerType", DEFAULTS.buildings.buildingMeta[key]?.workerType || null);
+      }
+      if(!Array.isArray(b.produces) && DEFAULTS.buildings.buildingMeta[key]?.produces) b.produces = DEFAULTS.buildings.buildingMeta[key].produces.slice();
+      if(!Array.isArray(b.consumes) && DEFAULTS.buildings.buildingMeta[key]?.consumes) b.consumes = DEFAULTS.buildings.buildingMeta[key].consumes.slice();
+      if(typeof b.expBoostPerLevel === "undefined" && typeof DEFAULTS.buildings.buildingMeta[key]?.expBoostPerLevel === "number"){
+        b.expBoostPerLevel = DEFAULTS.buildings.buildingMeta[key].expBoostPerLevel;
+      }
+      if(typeof b.recipePillPerBatch === "undefined" && typeof DEFAULTS.buildings.buildingMeta[key]?.recipePillPerBatch === "number"){
+        b.recipePillPerBatch = DEFAULTS.buildings.buildingMeta[key].recipePillPerBatch;
+      }
+      if(typeof b.recipeLingyaoCostPerBatch === "undefined" && typeof DEFAULTS.buildings.buildingMeta[key]?.recipeLingyaoCostPerBatch === "number"){
+        b.recipeLingyaoCostPerBatch = DEFAULTS.buildings.buildingMeta[key].recipeLingyaoCostPerBatch;
+      }
       const defP = DEFAULTS.buildings.buildingMeta[key]?.position || {x:50,y:50,w:18,h:28};
       b.position = obj(b.position, "buildings.buildingMeta."+key+".position");
       b.position.x = num(b.position.x, "buildings.buildingMeta."+key+".position.x", defP.x);
@@ -263,6 +346,19 @@
       if(!["top","bottom","left","right"].includes(b.labelPosition)) b.labelPosition = labelDef;
       b.zIndex = num(b.zIndex, "buildings.buildingMeta."+key+".zIndex", DEFAULTS.buildings.buildingMeta[key]?.zIndex || 40);
       b.cardStyle = obj(b.cardStyle, "buildings.buildingMeta."+key+".cardStyle");
+    }
+
+    // realms（额外校验 breakthrough 字段）
+    for(const id of cfg.realms.order){
+      const r = cfg.realms.realms[id];
+      if(!r) continue;
+      r.breakthrough = obj(r.breakthrough, "realms.realms."+id+".breakthrough");
+      const defBT = DEFAULTS.realms.realms[id]?.breakthrough || {};
+      r.breakthrough.nextRealm = typeof r.breakthrough.nextRealm==="string" || r.breakthrough.nextRealm===null
+        ? r.breakthrough.nextRealm : (defBT.nextRealm ?? null);
+      r.breakthrough.needPill = num(r.breakthrough.needPill, "realms.realms."+id+".breakthrough.needPill", defBT.needPill || 0);
+      r.breakthrough.needBreakthroughStone = num(r.breakthrough.needBreakthroughStone, "realms.realms."+id+".breakthrough.needBreakthroughStone", defBT.needBreakthroughStone || 0);
+      r.breakthrough.baseSuccessRate = num(r.breakthrough.baseSuccessRate, "realms.realms."+id+".breakthrough.baseSuccessRate", defBT.baseSuccessRate ?? 0.7);
     }
 
     // ui
@@ -402,6 +498,34 @@
         );
       },
       moraleMul(leaderOnDutyBool){ return leaderOnDutyBool? V.leader.moraleMul : 1; },
+      // 药田：弟子/掌门每 tick 产灵药（公式和灵石一样，额外乘 lingyaoPerMul 可单独调）
+      lingyaoPer10s(d, realmId){
+        return this.producePer10s(d, realmId) * V.produce.lingyaoPerMul;
+      },
+      // 丹房：从 buildingMeta.xxx 或全局 values.alchemy 取配方（meta 优先级高方便以后单栋调）
+      alchemyRecipe(buildingKey){
+        const meta = BM[buildingKey||"danfang"];
+        const pillPer   = typeof meta?.recipePillPerBatch === "number"        ? meta.recipePillPerBatch        : V.alchemy.recipePillPerBatch;
+        const costPer   = typeof meta?.recipeLingyaoCostPerBatch === "number" ? meta.recipeLingyaoCostPerBatch : V.alchemy.recipeLingyaoCostPerBatch;
+        return { pillPerBatch: pillPer, lingyaoCostPerBatch: costPer };
+      },
+      // 练气→筑基 等突破成功率：基础成功率 + 额外吃的丹药数 × 加成系数，最高 1.0（100%）
+      breakthroughSuccessRate(realmId, extraPillAdd){
+        const r = R[realmId];
+        if(!r || !r.breakthrough) return 0;
+        const base = r.breakthrough.baseSuccessRate;
+        const add  = Math.max(0, Math.min(V.breakthrough.pillBoostAddMax, Math.floor(Number(extraPillAdd)||0)));
+        const rate = base + add * V.breakthrough.pillBoostPerAdd;
+        return Math.max(0, Math.min(1, rate));
+      },
+      // 藏经阁经验倍率（Lv.1 不加成；Lv.2 起 +5%/级）— 也接受 level 为数字的情况下 fallback 到全局 values.cangjing
+      cangjingExpMul(cangjingLevel){
+        const lvl = Math.max(1, Number(cangjingLevel)||1);
+        // 优先读 meta.cangjing.expBoostPerLevel（建筑元数据级调，更灵活）
+        const per = (typeof BM.cangjing?.expBoostPerLevel === "number") ? BM.cangjing.expBoostPerLevel
+                                                                       : V.cangjing.expBoostPerLevel;
+        return 1 + Math.max(0, lvl - 1) * per;
+      },
       genName(){
         const sl = cfg.nameLib.surnames;
         const gl = cfg.nameLib.given;

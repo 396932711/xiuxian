@@ -16,7 +16,22 @@
 
   "produce": {
     "basePer10s": 1.5,
-    "perLevelMul": 0.1
+    "perLevelMul": 0.1,
+    "lingyaoPerMul": 1.0
+  },
+
+  "alchemy": { "recipePillPerBatch": 1, "recipeLingyaoCostPerBatch": 3 },
+  "breakthrough": { "pillBoostPerAdd": 0.1, "pillBoostAddMax": 2, "failBackLevelOffset": 1 },
+  "cangjing":  { "expBoostPerLevel": 0.05 },
+  "quests": {
+    "dailyPool": [
+      { "id":"q_collect_ls",   "type":"collect_resource", "resource":"lingshi", "need":300, "reward":{"danyao":1,"contribution":10} },
+      { "id":"q_collect_ly",   "type":"collect_resource", "resource":"lingyao","need":60,  "reward":{"danyao":1,"contribution":10} },
+      { "id":"q_upgrade_bld",  "type":"upgrade_building", "need":2, "reward":{"lingyao":20,"contribution":15} },
+      { "id":"q_train_exp",    "type":"exp_sum",          "need":500, "reward":{"lingshi":100,"contribution":10} },
+      { "id":"q_recruit_once", "type":"recruit_count",    "need":1, "reward":{"lingyao":15} }
+    ],
+    "dailyCount": 3
   },
 
   "upgrade": {

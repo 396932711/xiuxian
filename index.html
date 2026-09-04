@@ -193,6 +193,11 @@
   .sect-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px;}
   .sect-meta-grid div{padding:6px 8px;background:#fff;border-radius:8px;border:1px solid var(--line);font-size:12px;}
   .sect-meta-grid strong{display:block;color:var(--ink);font-size:14px;margin-top:2px;}
+  /* 任务进度条：唯一新增的弹窗级小 class */
+  .quest-bar{width:100%;height:8px;background:rgba(58,74,90,.08);border-radius:4px;overflow:hidden;}
+  .quest-bar .fill{height:100%;background:linear-gradient(90deg,var(--qing),var(--gold));transition:width .25s;}
+  /* 顶栏资源胶囊弹性排列（灵石/灵药/丹药 3 个） */
+  .res-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 </style>
 </head>
 <body>
@@ -207,7 +212,7 @@
     </div>
     <div class="sect-name"><span id="sectName"></span><span class="sect-level" id="sectLevel"></span></div>
     <div class="spacer"></div>
-    <div class="res"><img id="iconLingshi" alt="灵石"><span id="lingshi">0</span></div>
+    <div class="res-wrap" id="resWrap"><div class="res"><img id="iconLingshi" alt="灵石"><span id="lingshi">0</span></div></div>
   </header>
   <main id="scene">
     <div class="buildings" id="buildings"></div>
@@ -261,6 +266,9 @@ function newGame(){
     if(key==="dian")       buildings[key] = { level: 1 };
     else if(key==="kuang") buildings[key] = { level: 1, workerIds: [] };
     else if(key==="zhaomu")buildings[key] = { level: 1, refreshCdEnd: 0 };
+    else if(key==="yaotian") buildings[key] = { level:1, workerIds:[] };
+    else if(key==="danfang") buildings[key] = { level:1, workerIds:[] };
+    else if(key==="cangjing")buildings[key] = { level:1 };
     else                   buildings[key] = { level: 1 };
   }
   // 初始资源：按 resources.order，灵石用 initialValue，其它初始 0
@@ -270,14 +278,15 @@ function newGame(){
     resources[key] = r.initialValue || 0;
   }
   return {
-    version:"1.2",
+    version:"1.3",
     lastSaveTime:Date.now(),
     sect:{ name: GameConfig.ui.sect.defaultName },
     resources,
     buildings,
     leader: makeLeader(),
     disciples:[],
-    nextDiscipleId:1
+    nextDiscipleId:1,
+    quests: { date:"", list:[] }
   };
 }
 function loadGame(){
@@ -299,6 +308,20 @@ function loadGame(){
       if(!s.buildings[k]) s.buildings[k] = tmpl.buildings[k];
       if(k==="kuang" && !Array.isArray(s.buildings.kuang.workerIds)) s.buildings.kuang.workerIds = [];
       if(k==="zhaomu" && typeof s.buildings.zhaomu.refreshCdEnd!=="number") s.buildings.zhaomu.refreshCdEnd = 0;
+    }
+    // Task2 迁移：新建筑 + quests + disciple realm 兜底
+    if(!s.buildings.yaotian) s.buildings.yaotian = { level:1, workerIds:[] };
+    if(!s.buildings.danfang) s.buildings.danfang = { level:1, workerIds:[] };
+    if(!s.buildings.cangjing) s.buildings.cangjing = { level:1 };
+    if(!Array.isArray(s.buildings.yaotian.workerIds)) s.buildings.yaotian.workerIds = [];
+    if(!Array.isArray(s.buildings.danfang.workerIds)) s.buildings.danfang.workerIds = [];
+    if(!s.quests || typeof s.quests!=="object") s.quests = { date:"", list:[] };
+    if(!s.disciples) s.disciples = [];
+    s.disciples.forEach(function(d){ if(!d.realm) d.realm = GameConfig.realms.order[0]; });
+    if(s.leader){
+      if(!s.leader.realm) s.leader.realm = GameConfig.realms.order[0];
+      s.leader.isLeader = true;
+      s.leader.base = s.leader.base || { root: GameConfig.values.leader.root };
     }
     s.disciples = Array.isArray(s.disciples)?s.disciples:[];
     s.nextDiscipleId = s.nextDiscipleId || (s.disciples.length+1);
@@ -506,7 +529,7 @@ function producePer10s(d){ return H.producePer10s(d, realmCodeOfName(d.realm)); 
 function upgradeCost(level){ return H.upgradeCost(level); }
 function expNeeded(level){ return H.expNeeded(realmCodeOfName(state?.leader?.realm||GameConfig.realms.order[0]), level); }
 function discipleCap(){ return H.discipleCap(state.buildings.dian.level); }
-function kuangCap(){ return H.slotCap("kuang", state.buildings.kuang.level); }
+function kuangCap(){ return bldSlotCap("kuang"); }
 function recruitCdSec(){ return H.recruitCdSec(state.buildings.zhaomu.level); }
 function leaderOnDuty(){ return Array.isArray(state.buildings.kuang.workerIds) && state.buildings.kuang.workerIds.includes("d_0"); }
 function moraleMul(){ return H.moraleMul(leaderOnDuty()); }
@@ -524,6 +547,27 @@ function realmCodeOfName(name){
   const m = realmNameToCodeMap();
   return m[name] || GameConfig.realms.order[0];
 }
+/* ---- Task2/3/4/6: 新 helpers alias ---- */
+function lingyaoPer10s(d){ return H.lingyaoPer10s(d, realmCodeOfName(d.realm)); }
+function alchemyRecipe(buildingKey){ return H.alchemyRecipe(buildingKey); }
+function breakthroughRate(realmId, add){ return H.breakthroughSuccessRate(realmId, add); }
+function cangjingExpMul(){ return H.cangjingExpMul(state.buildings.cangjing.level); }
+function bldSlotCap(key){ return H.slotCap(key, state.buildings[key].level); }
+/* ---- 大殿等级驱动的阶段判定（用于资源解锁显示）---- */
+function currentStageByDian(){
+  var lv = state.buildings.dian.level;
+  if(lv >= 4) return 3;
+  if(lv >= 2) return 2;
+  return 1;
+}
+/* ---- 工位已满提示文案（通用）---- */
+function buildingSlotsFullMsg(bldKey){
+  var uiT = GameConfig.ui.uiText;
+  var meta = (GameConfig.buildings.buildingMeta||{})[bldKey] || {name: bldKey};
+  var tpl = uiT.genericSlotsFull;
+  if(tpl) return String(tpl).replace(/\{BUILD\}/g, meta.name);
+  return (uiT.workerSlotsFull || "工位已满，请升级") + (meta.name || bldKey);
+}
 
 /* ===== 3. 离线结算 ===== */
 function settleOffline(){
@@ -539,7 +583,29 @@ function settleOffline(){
   }
   gain = Math.floor(gain);
   state.resources.lingshi += gain;
-  return { seconds:Math.floor(offlineMs/1000), gain, ticks, morale: mm>1 };
+  // Task3: 离线灵药（和矿场一样公式，但无士气加成）
+  let gainLY = 0;
+  for(var i=0;i<state.buildings.yaotian.workerIds.length;i++){
+    const d = getEntity(state.buildings.yaotian.workerIds[i]);
+    if(d) gainLY += lingyaoPer10s(d) * ticks;
+  }
+  gainLY = Math.floor(gainLY);
+  state.resources.lingyao = +(state.resources.lingyao + gainLY).toFixed(2);
+  // Task4: 离线丹药（按批次消耗灵药避免负）
+  const recipe = alchemyRecipe("danfang");
+  var danfangPeople = state.buildings.danfang.workerIds.length;
+  if(danfangPeople > 0 && recipe && recipe.lingyaoCostPerBatch > 0){
+    // 先把药田累积的灵药算进来（上面刚加过）→ 然后按最多能炼几批砍
+    const maxBatches = danfangPeople * ticks;
+    var lingyaoNow = +state.resources.lingyao;
+    const maxByIngredient = Math.floor(lingyaoNow / recipe.lingyaoCostPerBatch);
+    const actualBatches = Math.min(maxBatches, Math.max(0, maxByIngredient));
+    if(actualBatches > 0){
+      state.resources.lingyao = +(lingyaoNow - actualBatches*recipe.lingyaoCostPerBatch).toFixed(2);
+      state.resources.danyao  = +(state.resources.danyao  + actualBatches*recipe.pillPerBatch).toFixed(2);
+    }
+  }
+  return { seconds:Math.floor(offlineMs/1000), gain, ticks, morale: mm>1, gainLY };
 }
 
 /* ===== 4. 弟子 / 掌门操作 ===== */
@@ -562,6 +628,7 @@ function recruit(){
     base:{ root: 1.0 }
   };
   state.disciples.push(d);
+  incQuestProgress("recruit_count", 1);
   saveGame();
   return {ok:true, disciple:d};
 }
@@ -572,20 +639,29 @@ function renameEntity(id, newName){
   if(newName.length<1 || newName.length>6) return false;
   d.name = newName; saveGame(); return true;
 }
-function assignToKuang(id){
-  const d = getEntity(id);
+/* ---- 通用分配 / 召回（Task3） ---- */
+function assignToBuilding(id, bldKey, status){
+  var d = getEntity(id);
   if(!d) return {ok:false,msg:"不存在"};
-  if(d.status!=="idle") return {ok:false,msg:"该人员已在岗"};
-  if(state.buildings.kuang.workerIds.length >= kuangCap()) return {ok:false, msg: GameConfig.ui.uiText.workerSlotsFull || "矿场工位已满，请升级灵矿场"};
-  d.status="mining"; d.assignTo="kuang";
-  state.buildings.kuang.workerIds.push(d.id);
+  if(d.status!=="idle") return {ok:false,msg: GameConfig.ui.uiText.workerAlreadyOnDuty || "该人员已在岗"};
+  var b = state.buildings[bldKey];
+  if(!b || !Array.isArray(b.workerIds)) return {ok:false,msg:"建筑没有工位"};
+  var cap = bldSlotCap(bldKey);
+  if(b.workerIds.length >= cap) return {ok:false, msg: buildingSlotsFullMsg(bldKey)};
+  d.status = status; d.assignTo = bldKey;
+  b.workerIds.push(d.id);
   saveGame(); return {ok:true};
 }
+function assignToKuang(id){ return assignToBuilding(id,"kuang","mining"); }
 function recallEntity(id){
-  const d = getEntity(id);
-  if(!d || d.status!=="mining") return {ok:false};
-  d.status="idle"; d.assignTo=null;
-  state.buildings.kuang.workerIds = state.buildings.kuang.workerIds.filter(x=>x!==id);
+  var d = getEntity(id);
+  if(!d) return {ok:false};
+  if(!d.assignTo) return {ok:false};
+  var b = state.buildings[d.assignTo];
+  if(b && Array.isArray(b.workerIds)){
+    b.workerIds = b.workerIds.filter(function(x){ return x!==id; });
+  }
+  d.status = "idle"; d.assignTo = null;
   saveGame(); return {ok:true};
 }
 
@@ -597,6 +673,12 @@ function upgradeBuilding(key){
   if(state.resources.lingshi < cost) return {ok:false, msg: GameConfig.ui.uiText.lingshiNotEnough || "灵石不足"};
   state.resources.lingshi -= cost;
   b.level++;
+  incQuestProgress("upgrade_building", 1);
+  if(key==="dian" && b.level===2){
+    var uiT = GameConfig.ui.uiText;
+    var txt = (uiT.newStageUnlockedNotice || "大殿升级到 Lv.2，解锁新资源！").replace(/\{LV\}/g, b.level);
+    setTimeout(function(){ toast(txt); }, 50);
+  }
   saveGame();
   return {ok:true};
 }
@@ -604,18 +686,47 @@ function upgradeBuilding(key){
 /* ===== 6. 主循环（tickSeconds 按配置动态） ===== */
 function tick(){
   const mm = moraleMul();
+  // Task3: 灵石（记总量到 lsTotal，末尾用于 incQuestProgress）
+  let lsTotal = 0;
   for(const id of state.buildings.kuang.workerIds){
     const d = getEntity(id);
-    if(d) state.resources.lingshi += producePer10s(d) * mm;
+    if(d) lsTotal += producePer10s(d) * mm;
   }
-  state.resources.lingshi = Math.floor(state.resources.lingshi*100)/100;
-  // 掌门 + 弟子 经验
+  state.resources.lingshi = +(state.resources.lingshi + lsTotal).toFixed(2);
+  // Task3: 药田产灵药（无士气加成）
+  var lyTotal = 0;
+  for(var yi=0;yi<state.buildings.yaotian.workerIds.length;yi++){
+    var d2 = getEntity(state.buildings.yaotian.workerIds[yi]);
+    if(d2) lyTotal += lingyaoPer10s(d2);
+  }
+  state.resources.lingyao = +(state.resources.lingyao + lyTotal).toFixed(2);
+  // Task4: 丹房 → 消耗灵药产丹药
+  var recipe = alchemyRecipe("danfang");
+  var alchemyWorkerCount = state.buildings.danfang.workerIds.length;
+  var actualBatchesDone = 0;
+  for(var aj=0;aj<alchemyWorkerCount;aj++){
+    if(state.resources.lingyao >= recipe.lingyaoCostPerBatch){
+      state.resources.lingyao = +(state.resources.lingyao - recipe.lingyaoCostPerBatch).toFixed(2);
+      state.resources.danyao  = +(state.resources.danyao  + recipe.pillPerBatch).toFixed(2);
+      actualBatchesDone++;
+    }
+  }
+  // Task6: 资源任务累加
+  incQuestProgress("collect_resource", {
+    lingshi: lsTotal,
+    lingyao: lyTotal,
+    danyao: actualBatchesDone * recipe.pillPerBatch
+  });
+  // 掌门 + 弟子 经验（藏经阁加成）
   const all = [state.leader, ...state.disciples];
+  var mul = cangjingExpMul();
   for(const d of all){
     if(!d) continue;
     const maxLv = H.maxLevel(realmCodeOfName(d.realm));
     if(d.level < maxLv){
-      d.exp += GameConfig.values.idleExpPerTick;
+      var addExp = GameConfig.values.idleExpPerTick * mul;
+      d.exp += addExp;
+      incQuestProgress("exp_sum", addExp);
       while(d.level < maxLv && d.exp >= H.expNeeded(realmCodeOfName(d.realm), d.level)){
         d.exp -= H.expNeeded(realmCodeOfName(d.realm), d.level);
         d.level++;
@@ -624,6 +735,7 @@ function tick(){
       d.exp = 0;
     }
   }
+  ensureDailyQuests();
   saveGame();
 }
 
@@ -638,7 +750,7 @@ function renderBottomNav(){
     ()=>openDisciples(),
     ()=>{ closeModal(); renderBuildings(); toast("回到宗门场景"); },
     ()=>toast("背包功能将在后续版本开放"),
-    ()=>toast("任务功能将在后续版本开放"),
+    ()=>openQuests(),
     ()=>openSettings()
   ];
   nav.innerHTML = "";
@@ -656,9 +768,40 @@ function renderTopbarAndResources(){
   document.getElementById("leaderLv").textContent = state.leader.realm + " Lv." + state.leader.level;
   document.getElementById("sectName").textContent = state.sect.name;
   document.getElementById("sectLevel").textContent = "Lv."+state.buildings.dian.level;
-  document.getElementById("lingshi").textContent = Math.floor(state.resources.lingshi);
+  // Task3 + FR1.1: 按 resources.order + 大殿阶段动态渲染前 3 个资源胶囊
+  var stage = currentStageByDian();
+  var order = GameConfig.resources.order;
+  var shown = [];
+  for(var i=0;i<order.length && shown.length<3;i++){
+    var k = order[i];
+    if(k==="contribution") continue; // 贡献不在顶栏
+    var r = GameConfig.resources.resources[k];
+    if(!r) continue;
+    var unlock = r._unlockAtStage || 1;
+    if(unlock > stage) continue;
+    shown.push(k);
+  }
+  var wrap = document.getElementById("resWrap");
+  if(wrap){
+    var html = "";
+    // 灵石 id 必须保留（老代码兼容）
+    var needLingshiFallback = shown.indexOf("lingshi")<0;
+    if(needLingshiFallback) shown.unshift("lingshi");
+    for(var j=0;j<shown.length;j++){
+      var kk = shown[j];
+      var rr = GameConfig.resources.resources[kk];
+      var idAttr = ' id="'+kk+'" ';
+      var iconId = "";
+      if(kk==="lingshi") iconId = ' id="iconLingshi" ';
+      var val = Math.floor(+state.resources[kk] || 0);
+      html += '<div class="res"><img '+iconId+' src="'+(rr.img||"")+'" alt="'+(rr.name||kk)+'"><span '+idAttr+' >'+val+'</span></div>';
+    }
+    wrap.innerHTML = html;
+  } else {
+    document.getElementById("lingshi").textContent = Math.floor(state.resources.lingshi);
+  }
   // 资源图 + 背景图：配置驱动
-  document.getElementById("iconLingshi").src = GameConfig.ui.images.iconLingshi;
+  try{ document.getElementById("iconLingshi").src = GameConfig.ui.images.iconLingshi; }catch(e){}
   document.body.style.background = `#cfe8e1 url("${GameConfig.ui.images.sceneBg}") center/cover no-repeat fixed`;
 }
 function currentBuildingMode(){
@@ -725,6 +868,7 @@ function renderBuildings(){
   }
 }
 function render(){
+  ensureDailyQuests();
   renderTopbarAndResources();
   renderBottomNav();
   renderBuildings();
@@ -737,15 +881,170 @@ function openModal(html){
 }
 function closeModal(){ document.getElementById("overlay").classList.remove("show"); }
 
+/* ---- 筑基突破系统（Task5） ---- */
+function canBreakthrough(e){
+  var realmCode = realmCodeOfName(e.realm);
+  var meta = GameConfig.realms.realms[realmCode];
+  if(!meta) return {ok:false,reason:"未知境界"};
+  if(e.level < meta.maxLevel) return {ok:false,reason:"修炼中"};
+  var bt = meta.breakthrough;
+  if(!bt || !bt.nextRealm) return {ok:false,reason:"已是最高境界"};
+  var need = bt.needPill || 0;
+  if(state.resources.danyao < need) return {ok:false,reason:"danyao_not_enough",need:need};
+  return {ok:true, needPill: need};
+}
+function openBreakthrough(entityId, extraAddInit){
+  var e = getEntity(entityId);
+  if(!e) return;
+  var realmCode = realmCodeOfName(e.realm);
+  var meta = GameConfig.realms.realms[realmCode];
+  if(!meta || !meta.breakthrough) return;
+  var bt = meta.breakthrough;
+  var needBase = bt.needPill || 0;
+  var addMax = (GameConfig.values.breakthrough && GameConfig.values.breakthrough.pillBoostAddMax!=null) ? GameConfig.values.breakthrough.pillBoostAddMax : 2;
+  var failOffset = (GameConfig.values.breakthrough && GameConfig.values.breakthrough.failBackLevelOffset!=null) ? GameConfig.values.breakthrough.failBackLevelOffset : 1;
+  var nextRealmId = bt.nextRealm;
+  var nextMeta = GameConfig.realms.realms[nextRealmId];
+  var nextRealmName = nextMeta ? nextMeta.name : (bt.nextRealm || "下一境");
+  var uiT = GameConfig.ui.uiText;
+  var avatar = e.isLeader ? leaderAvatarSrc() : (GameConfig.ui.images.discipleLianqi||"assets/img/disciple_lianqi.jpg");
+  // 弹窗内部状态：window-level 暂存
+  var stateKey = "_bt_" + entityId;
+  if(extraAddInit==null) extraAddInit = 0;
+  window[stateKey] = {extra: extraAddInit};
+  function renderInner(){
+    var cur = window[stateKey];
+    var extra = cur.extra;
+    if(extra < 0) extra = 0;
+    if(extra > addMax) extra = addMax;
+    cur.extra = extra;
+    var rateRaw = breakthroughRate(realmCode, extra);
+    var ratePct = Math.round(rateRaw*100);
+    var totalPill = needBase + extra;
+    var danyao = +state.resources.danyao || 0;
+    var canConfirm = danyao >= totalPill;
+    var titleText = (uiT.breakthroughTitle || "突破筑基").replace(/\{NEXT\}/g, nextRealmName);
+    var pillsOptHtml = "";
+    for(var i=0;i<=addMax;i++){
+      var sel = (i===extra) ? ' style="border-color:var(--qing);font-weight:700;background:var(--qing);color:#fff;" ' : '';
+      var r = Math.round(breakthroughRate(realmCode,i)*100);
+      pillsOptHtml += '<button class="btn" style="padding:6px 10px;font-size:12px;margin-right:6px;"'+sel+'onclick="window[\''+stateKey+'\'].extra='+i+';_btRedraw(\''+entityId+'\')">'
+                    + (i===0 ? (uiT.breakthroughPill0 || "基础") : ("+"+i))
+                    + ' <small style="opacity:.85;">('+r+'%)</small></button>';
+    }
+    var breakthroughNeedTxt = (uiT.breakthroughNeed || "消耗 1 颗丹药（基础成功率 80%）")
+      .replace(/\{BASE\}/g, needBase)
+      .replace(/\{BASE_RATE\}/g, Math.round(breakthroughRate(realmCode,0)*100));
+    var confirmTxt = uiT.breakthroughConfirm || "确认突破";
+    var rateLabel = (uiT.breakthroughRateLabel || "突破成功率") + "：" + ratePct + "%";
+    var totalLabel = (uiT.breakthroughTotalCost || "总共消耗") + "：" + totalPill + " 颗";
+    var stockLabel = (uiT.danyaoStock || "丹药库存：") + Math.floor(danyao);
+    var html =
+      '<h2>'+titleText+'<button class="close" onclick="closeModal();delete window[\''+stateKey+'\'];">×</button></h2>'
+      +'<div class="leader-banner">'
+      +'<img src="'+avatar+'" alt="'+e.name+'">'
+      +'<div class="r-name">'+e.name+(e.isLeader?' <span class="tag-gold">掌门</span>':'')+'</div>'
+      +'<div class="r-sub">'+e.realm+'境 · Lv.'+e.level+' → '+nextRealmName+'境</div>'
+      +'</div>'
+      +'<div class="info-row"><span>'+(uiT.breakthroughCurrentPill || "当前丹药库存")+'</span><span>'+Math.floor(danyao)+'</span></div>'
+      +'<div class="info-row"><span>'+(uiT.breakthroughBaseNeed || "基础需求")+'</span><span>'+breakthroughNeedTxt+'</span></div>'
+      +'<div class="info-row"><span>'+(uiT.breakthroughExtraLabel || "额外吃丹药加成")+'</span><span>'+pillsOptHtml+'</span></div>'
+      +'<div class="info-row"><span>'+(uiT.breakthroughRateLabel || "突破成功率")+'</span><span>'+ratePct+'% · '+totalLabel+'</span></div>'
+      +'<button class="btn full '+(canConfirm?'':'gray')+'" '+(canConfirm?'onclick="_btDoConfirm(\''+entityId+'\')"':'disabled')+'>'+confirmTxt+'</button>'
+      +'<span class="muted">'+(uiT.breakthroughTip || "温馨提示：多吃丹药可提升成功率，失败会小幅回退等级")+'</span>';
+    document.getElementById("modal").innerHTML = html;
+  }
+  window["_btRedraw_"+entityId] = renderInner;
+  window["_btDoConfirm_"+entityId] = function(){
+    var cur = window[stateKey];
+    var extra = cur.extra;
+    var totalPill = needBase + extra;
+    if((+state.resources.danyao||0) < totalPill){ toast(uiT.lingshiNotEnough ? "" : ""); return; }
+    state.resources.danyao = +(+state.resources.danyao - totalPill).toFixed(2);
+    var rate = breakthroughRate(realmCode, extra);
+    var success = Math.random() < rate;
+    if(success){
+      e.realm = nextRealmName;
+      e.level = 1;
+      e.exp = 0;
+      var okText = (uiT.breakthroughSuccess || "🎉 突破成功，进入筑基境！").replace(/\{NEXT\}/g, nextRealmName);
+      toast(okText);
+    } else {
+      e.level = Math.max(1, meta.maxLevel - failOffset);
+      e.exp = 0;
+      var failText = uiT.breakthroughFail || "💧 突破失败，境界小退一步，再努力修炼吧！";
+      toast(failText);
+    }
+    saveGame();
+    delete window[stateKey];
+    delete window["_btRedraw_"+entityId];
+    delete window["_btDoConfirm_"+entityId];
+    closeModal();
+    render();
+    if(e.isLeader) setTimeout(openLeaderDetail, 60);
+    else setTimeout(function(){ openDiscipleDetail(e.id); }, 60);
+  };
+  window._btRedraw = function(id){ if(window["_btRedraw_"+id]) window["_btRedraw_"+id](); };
+  window._btDoConfirm = function(id){ if(window["_btDoConfirm_"+id]) window["_btDoConfirm_"+id](); };
+  openModal("");
+  renderInner();
+}
 /* ---- 掌门详情 ---- */
 function openLeaderDetail(){
   const d = state.leader;
-  const mining = d.status==="mining";
   const maxLv = H.maxLevel(realmCodeOfName(d.realm));
   const need = H.expNeeded(realmCodeOfName(d.realm), d.level);
   const pct = d.level>=maxLv ? 100 : Math.min(100, Math.floor(d.exp/need*100));
   const onDuty = leaderOnDuty();
   const uiT = GameConfig.ui.uiText;
+  var T_mining = uiT.miningStatus || "采集中";
+  var T_farming = uiT.farmingStatus || "种药中";
+  var T_alchemy = uiT.alchemyStatus || "炼丹中";
+  var T_idle = uiT.idleStatus || "空闲";
+  function statusText(s){
+    if(s==="mining") return T_mining;
+    if(s==="farming") return T_farming;
+    if(s==="alchemy") return T_alchemy;
+    return T_idle;
+  }
+  const statusTxt = statusText(d.status);
+  const assigned = d.assignTo;
+  const mining = d.status==="mining";
+  // 突破按钮
+  var can = canBreakthrough(d);
+  var btHtml = "";
+  if(can.ok){
+    var btLabel = uiT.breakthroughBtnLabel || "🚀 突破筑基";
+    btHtml = '<div class="btn-row" style="margin-top:8px;">'
+           + '<button class="btn full" onclick="openBreakthrough(\''+d.id+'\',0)">'+btLabel+'</button></div>';
+  }else if(can.reason==="danyao_not_enough"){
+    var disLabel = uiT.breakthroughBtnLabel || "🚀 突破筑基";
+    var tipText = (uiT.breakthroughNotReady || "需要 {N} 颗丹药才能突破").replace(/\{N\}/g, can.need||1);
+    btHtml = '<div class="btn-row" style="margin-top:8px;">'
+           + '<button class="btn full gray" disabled title="'+tipText+'">'+disLabel+'</button>'
+           + '<div class="hint-warn" style="margin-top:4px;">'+tipText+'</div></div>';
+  }
+  // 岗位分配/召回文案：按当前 assignTo 显示
+  var recallBtnText = "";
+  var assignBtnText = "";
+  var doRecallAction = "";
+  var doAssignAction = "";
+  if(assigned){
+    var bMeta = (GameConfig.buildings.buildingMeta||{})[assigned] || {name:assigned};
+    var recallTpl = uiT.recallFromBuilding || "从{BUILD}召回";
+    recallBtnText = recallTpl.replace(/\{BUILD\}/g, bMeta.name);
+    doRecallAction = "doRecall('d_0','leader')";
+  } else {
+    var assignMiningT = uiT.assignMiningBtn || "▶ 下场采矿";
+    assignBtnText = assignMiningT;
+    doAssignAction = "doAssign('d_0','leader')";
+  }
+  var dutyRowHtml = "";
+  if(assigned){
+    dutyRowHtml = '<button class="btn qing" onclick="'+doRecallAction+'">'+recallBtnText+'</button>';
+  } else {
+    dutyRowHtml = '<button class="btn" onclick="'+doAssignAction+'">'+assignBtnText+'</button>';
+  }
   openModal(`
     <h2>掌门详情<button class="close" onclick="closeModal()">×</button></h2>
     <div class="leader-banner">
@@ -757,17 +1056,16 @@ function openLeaderDetail(){
     <div class="expbar"><div style="width:${pct}%"></div></div>
     <div class="info-row"><span>产出 / 10s</span><span>${producePer10s(d).toFixed(2)} 灵石</span></div>
     <div class="hint">掌门额外 ×${GameConfig.values.leader.produceMul} 产出</div>
-    <div class="info-row"><span>岗位状态</span><span>${mining?'采集中':'空闲'}</span></div>
+    <div class="info-row"><span>岗位状态</span><span>${statusTxt}</span></div>
     <div class="info-row"><span>士气加成</span><span>${onDuty?(uiT.moraleOn||'全员同岗 +10% ✅'):'未生效（掌门下场后生效）'}</span></div>
     <div class="btn-row">
       <button class="btn wood" onclick="startRename('d_0','leader')">改名</button>
       <button class="btn qing" onclick="triggerAvatarUpload()">更换头像</button>
     </div>
     <div class="btn-row" style="margin-top:8px;">
-      ${mining
-        ? `<button class="btn qing" onclick="doRecall('d_0','leader')">从矿场召回</button>`
-        : `<button class="btn" onclick="doAssign('d_0','leader')">下场采矿</button>`}
+      ${dutyRowHtml}
     </div>
+    ${btHtml}
   `);
 }
 
@@ -884,6 +1182,72 @@ function doRecall(id, from){
   else openDiscipleDetail(id);
 }
 
+/* ---- 通用：为某建筑弹窗生成『在岗弟子 + 空闲弟子』两列表 ---- */
+function renderBuildingWorkerRows(bldKey, assignStatus){
+  const uiT = GameConfig.ui.uiText;
+  var b = state.buildings[bldKey];
+  var cap = bldSlotCap(bldKey);
+  var assignBtnKey = (bldKey==="yaotian") ? "assignFarmingBtn"
+                  : (bldKey==="danfang") ? "assignAlchemyBtn"
+                  : "assignMiningBtn";
+  var assignBtnFallback = (bldKey==="yaotian") ? "▶ 分配种药"
+                       : (bldKey==="danfang") ? "▶ 分配炼丹"
+                       : "▶ 分配采矿";
+  var T_assign = uiT[assignBtnKey] || assignBtnFallback;
+  var T_recall = uiT.recallBtn || "◀ 召回";
+  var html = '<div class="card-block"><h3>';
+  html += (uiT.workersOnDutyTitle || "在岗弟子") + " (" + b.workerIds.length + "/" + cap + ")</h3>";
+  if(b.workerIds.length===0){
+    html += '<div class="muted">'+(uiT.workersEmptyHint || "暂无在岗弟子")+'</div>';
+  } else {
+    for(var i=0;i<b.workerIds.length;i++){
+      var d = getEntity(b.workerIds[i]);
+      if(!d) continue;
+      var avatar = d.isLeader ? leaderAvatarSrc() : (GameConfig.ui.images.discipleLianqi||"assets/img/disciple_lianqi.jpg");
+      html += '<div class="d-item" style="margin-top:6px;"><img src="'+avatar+'">'
+           +  '<div class="d-info"><div class="d-name">'+(d.name)+(d.isLeader?' <span class="tag-gold">掌门</span>':'')+'</div>'
+           +  '<div class="d-meta">'+d.realm+' · Lv.'+d.level+'</div></div>'
+           +  '<button class="btn wood" style="padding:6px 10px;font-size:12px;" onclick="doBuildingRecall(\''+d.id+'\',\''+bldKey+'\')">'+T_recall+'</button>'
+           +  '</div>';
+    }
+  }
+  html += '</div><div class="card-block"><h3>'+(uiT.workersIdleTitle || "空闲弟子")+'</h3>';
+  var idleList = [state.leader].concat(state.disciples);
+  var idleShown = 0;
+  for(var k=0;k<idleList.length;k++){
+    var dd = idleList[k];
+    if(!dd || dd.status!=="idle") continue;
+    idleShown++;
+    var av2 = dd.isLeader ? leaderAvatarSrc() : (GameConfig.ui.images.discipleLianqi||"assets/img/disciple_lianqi.jpg");
+    html += '<div class="d-item" style="margin-top:6px;"><img src="'+av2+'">'
+         +  '<div class="d-info"><div class="d-name">'+dd.name+(dd.isLeader?' <span class="tag-gold">掌门</span>':'')+'</div>'
+         +  '<div class="d-meta">'+dd.realm+' · Lv.'+dd.level+'</div></div>'
+         +  '<button class="btn qing" style="padding:6px 10px;font-size:12px;" onclick="doBuildingAssign(\''+dd.id+'\',\''+bldKey+'\',\''+assignStatus+'\')">'+T_assign+'</button>'
+         +  '</div>';
+  }
+  if(idleShown===0){
+    html += '<div class="muted">'+(uiT.noIdleHint || "没有空闲弟子")+'</div>';
+  }
+  html += '</div>';
+  return html;
+}
+function doBuildingAssign(id, bldKey, assignStatus){
+  var r = assignToBuilding(id, bldKey, assignStatus);
+  if(!r.ok){ toast(r.msg); return; }
+  var uiT = GameConfig.ui.uiText;
+  var bName = (GameConfig.buildings.buildingMeta[bldKey]||{}).name || bldKey;
+  var tpl = uiT.assignedSuccess || "已分配至{BUILD}";
+  toast(tpl.replace(/\{BUILD\}/g, bName));
+  render();
+  openBuilding(bldKey);
+}
+function doBuildingRecall(id, bldKey){
+  recallEntity(id);
+  var uiT = GameConfig.ui.uiText;
+  toast(uiT.recalledSuccess || "已召回");
+  render();
+  openBuilding(bldKey);
+}
 /* ---- 建筑弹窗 ---- */
 function openBuilding(key){
   const b = state.buildings[key];
@@ -895,8 +1259,40 @@ function openBuilding(key){
   }else if(key==="kuang"){
     const mm = leaderOnDuty();
     extra = `<div class="info-row"><span>工位</span><span>${b.workerIds.length} / ${kuangCap()}</span></div>
-            <div class="info-row"><span>士气加成</span><span>${mm?(uiT.moraleOn||'掌门在岗，全员 +10% ✅'):(uiT.moraleOff||'掌门未在岗')}</span></div>
-            <button class="btn qing full" onclick="closeModal();openDisciples()">分配掌门/弟子</button>`;
+            <div class="info-row"><span>士气加成</span><span>${mm?(uiT.moraleOn||'掌门在岗，全员 +10% ✅'):(uiT.moraleOff||'掌门未在岗')}</span></div>`
+            + renderBuildingWorkerRows("kuang","mining");
+  }else if(key==="yaotian"){
+    // Task3: 药田产量：Σ 在岗 lingyaoPer10s
+    var ytTotal = 0;
+    for(var yi=0;yi<b.workerIds.length;yi++){
+      var yd = getEntity(b.workerIds[yi]);
+      if(yd) ytTotal += lingyaoPer10s(yd);
+    }
+    var produceLabel = (uiT.produceFarming || "灵药产量：") + (+ytTotal.toFixed(2)) + "/10秒";
+    extra = `<div class="info-row"><span>工位</span><span>${b.workerIds.length} / ${bldSlotCap("yaotian")}</span></div>
+            <div class="info-row"><span>${uiT.produceFarmingTitle||"产量"}</span><span>${produceLabel}</span></div>`
+            + renderBuildingWorkerRows("yaotian","farming");
+  }else if(key==="danfang"){
+    // Task4: 丹房产量显示 + 库存
+    var recipe = alchemyRecipe("danfang");
+    var pillOut = b.workerIds.length * recipe.pillPerBatch;
+    var costOut = b.workerIds.length * recipe.lingyaoCostPerBatch;
+    var produceStr = (uiT.produceAlchemyTitle || "丹药产量：")
+                   + (+pillOut.toFixed(2)) + "/10秒 （"
+                   + (uiT.produceAlchemyConsume || "消耗灵药") + " " + (+costOut.toFixed(2)) + "/10秒）";
+    var stockStr = (uiT.lingyaoStock || "灵药库存：") + Math.floor(state.resources.lingyao)
+                 + " / " + (uiT.danyaoStock || "丹药库存：") + Math.floor(state.resources.danyao);
+    extra = `<div class="info-row"><span>工位</span><span>${b.workerIds.length} / ${bldSlotCap("danfang")}</span></div>
+            <div class="info-row"><span>${uiT.produceAlchemyTitle||"产量"}</span><span>${produceStr}</span></div>
+            <div class="info-row"><span>${uiT.stockTitle||"库存"}</span><span>${stockStr}</span></div>`
+            + renderBuildingWorkerRows("danfang","alchemy");
+  }else if(key==="cangjing"){
+    var mul = cangjingExpMul();
+    var pct = +((mul-1)*100).toFixed(0);
+    var hint = (uiT.expBoostHint || "当前加成：+{PCT}% 全员修炼速度（藏经阁 Lv.{N}）")
+               .replace(/\{PCT\}/g, pct).replace(/\{N\}/g, b.level);
+    extra = `<div class="info-row"><span>${uiT.expBoostLabel||"修炼加成"}</span><span>${hint}</span></div>
+            <div class="muted">${(uiT.cangjingNoWorker||"藏经阁为全宗加成建筑，不占用弟子工位")}</div>`;
   }else if(key==="zhaomu"){
     const cost = GameConfig.values.recruit.cost;
     const left = Math.max(0, Math.ceil((b.refreshCdEnd-Date.now())/1000));
@@ -945,6 +1341,18 @@ function doRecruit(){
 }
 
 /* ---- 弟子列表（掌门置顶） ---- */
+function statusTagOf(d){
+  var uiT = GameConfig.ui.uiText;
+  var T_idle = uiT.idleStatus || "空闲";
+  var T_mining = uiT.miningStatus || "采集中";
+  var T_farming = uiT.farmingStatus || "种药中";
+  var T_alchemy = uiT.alchemyStatus || "炼丹中";
+  var s = d.status;
+  if(s==="mining") return '<span class="d-tag tag-mining">'+T_mining+'</span>';
+  if(s==="farming") return '<span class="d-tag tag-mining" style="background:#f1f6e2;color:#5a6a2a;">'+T_farming+'</span>';
+  if(s==="alchemy") return '<span class="d-tag tag-mining" style="background:#fbeee8;color:#a44;">'+T_alchemy+'</span>';
+  return '<span class="d-tag tag-idle">'+T_idle+'</span>';
+}
 function openDisciples(){
   const items = [state.leader, ...state.disciples];
   if(items.length===0){
@@ -952,11 +1360,12 @@ function openDisciples(){
       <button class="btn full" onclick="closeModal();openBuilding('zhaomu')">前往招募堂</button>`);
     return;
   }
+  const uiT = GameConfig.ui.uiText;
   let html = `<h2>掌门与弟子 (弟子 ${state.disciples.length}/${discipleCap()}，掌门不计入)<button class="close" onclick="closeModal()">×</button></h2><div class="d-list">`;
   items.forEach(d=>{
     if(!d) return;
     const isL = !!d.isLeader;
-    const tag = d.status==="mining"?`<span class="d-tag tag-mining">采集中</span>`:`<span class="d-tag tag-idle">空闲</span>`;
+    const tag = statusTagOf(d);
     const nameHtml = isL
       ? `<span>${d.name}</span><span class="tag-gold">掌门</span>`
       : d.name;
@@ -974,24 +1383,60 @@ function openDisciples(){
 function openDiscipleDetail(id){
   const d = getEntity(id);
   if(!d || d.isLeader){ openLeaderDetail(); return; }
-  const mining = d.status==="mining";
   const maxLv = H.maxLevel(realmCodeOfName(d.realm));
   const need = H.expNeeded(realmCodeOfName(d.realm), d.level);
   const pct = d.level>=maxLv ? 100 : Math.min(100, Math.floor(d.exp/need*100));
+  const uiT = GameConfig.ui.uiText;
+  var T_status = statusTextOf(d.status);
+  var assigned = d.assignTo;
+  // 状态文本函数
+  function statusTextOf(s){
+    var T_idle = uiT.idleStatus || "空闲";
+    var T_mining = uiT.miningStatus || "采集中";
+    var T_farming = uiT.farmingStatus || "种药中";
+    var T_alchemy = uiT.alchemyStatus || "炼丹中";
+    if(s==="mining") return T_mining;
+    if(s==="farming") return T_farming;
+    if(s==="alchemy") return T_alchemy;
+    return T_idle;
+  }
+  var dutyBtnsHtml = "";
+  if(assigned){
+    var bMeta = (GameConfig.buildings.buildingMeta||{})[assigned] || {name:assigned};
+    var recallTpl = uiT.recallFromBuilding || "从{BUILD}召回";
+    var recallTxt = recallTpl.replace(/\{BUILD\}/g, bMeta.name);
+    dutyBtnsHtml = '<button class="btn qing" onclick="doRecall(\''+d.id+'\',\'disciple\')">'+recallTxt+'</button>';
+  } else {
+    var assignTxt = uiT.assignMiningBtn || "▶ 分配至矿场";
+    dutyBtnsHtml = '<button class="btn qing" onclick="doAssign(\''+d.id+'\',\'disciple\')">'+assignTxt+'</button>';
+  }
+  // 突破按钮
+  var can = canBreakthrough(d);
+  var btHtml = "";
+  if(can.ok){
+    var btLabel = uiT.breakthroughBtnLabel || "🚀 突破筑基";
+    btHtml = '<div class="btn-row" style="margin-top:8px;">'
+           + '<button class="btn full" onclick="openBreakthrough(\''+d.id+'\',0)">'+btLabel+'</button></div>';
+  }else if(can.reason==="danyao_not_enough"){
+    var disLabel = uiT.breakthroughBtnLabel || "🚀 突破筑基";
+    var tipText = (uiT.breakthroughNotReady || "需要 {N} 颗丹药才能突破").replace(/\{N\}/g, can.need||1);
+    btHtml = '<div class="btn-row" style="margin-top:8px;">'
+           + '<button class="btn full gray" disabled title="'+tipText+'">'+disLabel+'</button>'
+           + '<div class="hint-warn" style="margin-top:4px;">'+tipText+'</div></div>';
+  }
   openModal(`
     <h2>${d.name}<button class="close" onclick="closeModal()">×</button></h2>
     <div class="m-sub">${d.realm}境 · Lv.${d.level} ${d.level>=maxLv?'（已满级）':''}</div>
     <div class="info-row"><span>经验</span><span>${Math.floor(d.exp)} / ${need}</span></div>
     <div class="expbar"><div style="width:${pct}%"></div></div>
     <div class="info-row"><span>产出 / 10s</span><span>${producePer10s(d).toFixed(2)} 灵石</span></div>
-    <div class="info-row"><span>状态</span><span>${mining?"采集中":"空闲"}</span></div>
+    <div class="info-row"><span>状态</span><span>${statusTextOf(d.status)}</span></div>
     ${leaderOnDuty()?'<div class="hint">掌门在岗 → 同岗额外 +10%</div>':''}
     <div class="btn-row">
       <button class="btn wood" onclick="startRename('${d.id}','disciple')">改名</button>
-      ${mining
-        ? `<button class="btn qing" onclick="doRecall('${d.id}','disciple')">召回</button>`
-        : `<button class="btn qing" onclick="doAssign('${d.id}','disciple')">分配至矿场</button>`}
+      ${dutyBtnsHtml}
     </div>
+    ${btHtml}
   `);
 }
 
@@ -1002,6 +1447,180 @@ function toast(msg){
   t.textContent = msg; t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* ===== 10bis. 日常任务（Task6） ===== */
+function todayStr(){
+  var d = new Date();
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+}
+function resName(id){ var r = GameConfig.resources.resources[id]; return r? r.name : id; }
+function formatNeed(n){ return Math.floor(n); }
+function questTitle(q){
+  var uiT = GameConfig.ui.uiText;
+  switch(q.type){
+    case "collect_resource":
+      var tpl = uiT.questCollectResourceTitle || "收集 {AMOUNT} {RES}";
+      return tpl.replace(/\{AMOUNT\}/g, formatNeed(q.need)).replace(/\{RES\}/g, resName(q.resource));
+    case "upgrade_building":
+      return (uiT.questUpgradeTitle || "升级 {N} 次建筑").replace(/\{N\}/g, formatNeed(q.need));
+    case "exp_sum":
+      return (uiT.questExpTitle || "弟子/掌门累计修炼 {N} 经验").replace(/\{N\}/g, formatNeed(q.need));
+    case "recruit_count":
+      return (uiT.questRecruitTitle || "招募 {N} 名新弟子").replace(/\{N\}/g, formatNeed(q.need));
+    default: return "任务 "+q.id;
+  }
+}
+function ensureDailyQuests(){
+  if(!state || !GameConfig) return;
+  var today = todayStr();
+  if(!state.quests || typeof state.quests!=="object" || state.quests.date !== today){
+    var pool = (GameConfig.values.quests && GameConfig.values.quests.dailyPool) ? GameConfig.values.quests.dailyPool.slice() : [];
+    for(var i=pool.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    var dailyCount = (GameConfig.values.quests && typeof GameConfig.values.quests.dailyCount==="number") ? GameConfig.values.quests.dailyCount : 3;
+    var n = Math.max(1, Math.min(dailyCount, pool.length));
+    var list = [];
+    for(var k=0;k<n;k++){
+      var q = pool[k];
+      list.push({
+        id: q.id, type: q.type, resource: q.resource,
+        title: questTitle(q),
+        need: q.need, progress: 0, claimed: false,
+        reward: JSON.parse(JSON.stringify(q.reward || {}))
+      });
+    }
+    state.quests = { date: today, list: list };
+    saveGame();
+  }
+}
+function incQuestProgress(type, arg){
+  if(!state || !state.quests || !Array.isArray(state.quests.list)) return;
+  var list = state.quests.list;
+  function addOne(q, amt){
+    if(!amt || isNaN(+amt)) return;
+    q.progress = Math.min(q.need, (+q.progress) + (+amt));
+  }
+  if(type==="collect_resource"){
+    var map = arg || {};
+    for(var i=0;i<list.length;i++){
+      var q = list[i];
+      if(q.claimed || q.type!=="collect_resource") continue;
+      var v = map[q.resource];
+      if(v!=null) addOne(q, v);
+    }
+  }else if(type==="upgrade_building"){
+    var a = (typeof arg==="number") ? arg : 1;
+    for(var i=0;i<list.length;i++){
+      var q = list[i];
+      if(q.claimed || q.type!=="upgrade_building") continue;
+      addOne(q, a);
+    }
+  }else if(type==="exp_sum"){
+    var amt = (typeof arg==="number") ? arg : 0;
+    for(var i=0;i<list.length;i++){
+      var q = list[i];
+      if(q.claimed || q.type!=="exp_sum") continue;
+      addOne(q, amt);
+    }
+  }else if(type==="recruit_count"){
+    var a2 = (typeof arg==="number") ? arg : 1;
+    for(var i=0;i<list.length;i++){
+      var q = list[i];
+      if(q.claimed || q.type!=="recruit_count") continue;
+      addOne(q, a2);
+    }
+  }
+}
+
+function openQuests(){
+  ensureDailyQuests();
+  var uiT = GameConfig.ui.uiText;
+  var today = state.quests.date || todayStr();
+  var contrib = +(state.resources.contribution || 0);
+  var contribBadgeTpl = uiT.questsContributionBadge || "宗门贡献：";
+  var titleTpl = (uiT.questsTitle || "今日任务").replace(/\{DATE\}/g, today);
+  var html = '<h2>'+titleTpl+' <span class="sect-level" style="font-size:12px;">'+contribBadgeTpl+Math.floor(contrib)+'</span><button class="close" onclick="closeModal()">×</button></h2>';
+  html += '<div class="m-sub" style="margin-bottom:8px;">'+today+'</div>';
+  if(!state.quests.list || state.quests.list.length===0){
+    html += '<div class="d-empty">'+(uiT.questsEmptyHint || "今日任务还未生成，请刷新重试")+'</div>';
+    openModal(html);
+    return;
+  }
+  for(var i=0;i<state.quests.list.length;i++){
+    var q = state.quests.list[i];
+    var p = +q.progress;
+    var nd = +q.need;
+    var pct = Math.min(100, Math.floor(p/nd*100));
+    var progressLabelTpl = (uiT.questsProgressLabel || "进度：{P}/{N}").replace(/\{P\}/g, Math.floor(p)).replace(/\{N\}/g, formatNeed(nd));
+    var rewardHtml = renderQuestRewardPreview(q.reward);
+    var statusBtn = "";
+    if(q.claimed){
+      statusBtn = '<button class="btn full gray" disabled>'+(uiT.questsClaimed || "✅ 已领")+'</button>';
+    }else if(p >= nd){
+      statusBtn = '<button class="btn full" onclick="claimQuestReward(\''+q.id+'\')">'+(uiT.questsRewardBtn || "🎁 领取")+'</button>';
+    }else{
+      statusBtn = '<button class="btn full gray" disabled>'+(uiT.questsDoing || "⏳ 进行中")+'</button>';
+    }
+    html += '<div class="card-block">'
+          + '<h3 style="display:flex;justify-content:space-between;align-items:center;">'
+          + '<span>'+(q.title || questTitle(q))+'</span>'
+          + '<small style="font-weight:500;color:#6a7a86;">'+progressLabelTpl+'</small>'
+          + '</h3>'
+          + '<div class="quest-bar" style="margin:6px 0 8px;"><div class="fill" style="width:'+pct+'%;"></div></div>'
+          + '<div style="font-size:12px;color:#6a7a86;margin-bottom:6px;">'+(uiT.questRewardLabel || "奖励")+'：'+rewardHtml+'</div>'
+          + statusBtn
+          + '</div>';
+  }
+  openModal(html);
+}
+function renderQuestRewardPreview(reward){
+  var uiT = GameConfig.ui.uiText;
+  var res = GameConfig.resources.resources || {};
+  var keys = Object.keys(reward||{});
+  if(keys.length===0) return "";
+  var parts = [];
+  for(var i=0;i<keys.length;i++){
+    var k = keys[i];
+    var v = reward[k];
+    if(!v) continue;
+    var meta = res[k] || {name:k,img:""};
+    parts.push('<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;">'
+              +(meta.img?'<img src="'+meta.img+'" style="width:14px;height:14px;vertical-align:middle;">':"")
+              +(meta.name||k)+" "+Math.floor(v)+'</span>');
+  }
+  return parts.join(" ");
+}
+function claimQuestReward(qid){
+  var found = null;
+  if(!state.quests || !state.quests.list) return;
+  for(var i=0;i<state.quests.list.length;i++){
+    if(state.quests.list[i].id===qid){ found = state.quests.list[i]; break; }
+  }
+  if(!found) return;
+  if(found.claimed) return;
+  if((+found.progress) < (+found.need)) return;
+  var uiT = GameConfig.ui.uiText;
+  var reward = found.reward || {};
+  var parts = [];
+  var keys = Object.keys(reward);
+  for(var i=0;i<keys.length;i++){
+    var k = keys[i];
+    var v = +reward[k]||0;
+    if(!v) continue;
+    if(typeof state.resources[k]!=="number") state.resources[k] = 0;
+    state.resources[k] = +(state.resources[k] + v).toFixed(2);
+    parts.push((GameConfig.resources.resources[k]?GameConfig.resources.resources[k].name:k)+"+"+Math.floor(v));
+  }
+  found.claimed = true;
+  saveGame();
+  var tpl = uiT.questRewardClaimed || "奖励已领取：{ITEMS}";
+  toast(tpl.replace(/\{ITEMS\}/g, parts.join("，")));
+  render();
+  openQuests();
 }
 
 /* ===== 10. 初始化：loadAll 配置 → 注入主题 → 读档 → 开循环 ===== */
